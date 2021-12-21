@@ -95,7 +95,9 @@ void exitWlan(void)
 #ifndef ROCKCHIP_WIFI_AUTO_SUPPORT
         rockchip_wifi_set_carddetect(0);
 #endif
-        rockchip_wifi_power(0);
+/*	don't turn off the chip 
+	rockchip_wifi_power(0); 
+*/
         g_wifidev_registered = 0;
     }
     return;
