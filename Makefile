@@ -103,11 +103,11 @@ clean:
 	rm -f *.o *.ko .*.cmd *.mod.c *.symvers modules.order
 	rm -rf .tmp_versions
 
-install: module
+install: modules
 	mkdir -p -m 755 $(DESTDIR)$(INST_DIR)
-	install -m 0644 $(KMODULE_NAME) $(DESTDIR)$(INST_DIR)
+	install -m 0644 $(KMODULE_NAME).ko $(DESTDIR)$(INST_DIR)
 ifndef DESTDIR
-	-/sbin/depm -a $(KVERS)
+	-/sbin/depmod -a $(KVERS)
 endif
 
 .PHONY: all modules clean install
