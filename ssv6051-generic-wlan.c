@@ -72,7 +72,7 @@ void exitWlan(void)
     }
     return;
 }
-static __init int init_module(void)
+static __init int ssv_init_module(void)
 {
 	printk("%s\n", __func__);
 #ifdef CONFIG_SSV_SUPPORT_AES_ASM
@@ -81,7 +81,7 @@ static __init int init_module(void)
 #endif
 	return initWlan();
 }
-static __exit void exit_module(void)
+static __exit void ssv:exit_module(void)
 {
 	printk("%s\n", __func__);
 #ifdef CONFIG_SSV_SUPPORT_AES_ASM
@@ -92,7 +92,7 @@ static __exit void exit_module(void)
 	exitWlan();
 }
 
-module_init(init_module);
-module_exit(exit_module);
+module_init(ssv_init_module);
+module_exit(ssv_exit_module);
 
 MODULE_LICENSE("Dual BSD/GPL");
