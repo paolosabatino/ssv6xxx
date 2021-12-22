@@ -14,7 +14,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/kernel.h>
 #include <linux/version.h>
 #include <linux/module.h>
@@ -33,6 +32,7 @@
 #include <asm/uaccess.h>
 #include <linux/buffer_head.h>
 #include <linux/ctype.h>
+
 MODULE_AUTHOR("iComm Semiconductor Co., Ltd");
 MODULE_DESCRIPTION("Shared library for SSV wireless LAN cards.");
 MODULE_LICENSE("Dual BSD/GPL");

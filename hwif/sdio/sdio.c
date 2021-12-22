@@ -60,7 +60,6 @@ static int ssv6xxx_sdio_status = 0;
 u32 sdio_sr_bhvr = SUSPEND_RESUME_0;
 EXPORT_SYMBOL(sdio_sr_bhvr);
 
-static DEFINE_MUTEX(reboot_lock);
 u32 shutdown_flags = SSV_SYS_REBOOT;
 
 struct ssv6xxx_sdio_glue {
