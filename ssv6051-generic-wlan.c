@@ -43,12 +43,15 @@ extern int sha1_mod_init(void);
 extern void sha1_mod_fini(void);
 #endif
 
-int initWlan(void)
+static __init int ssv_init_module(void)
 {
 	int ret = 0;
 	int time = 5;
 
+    pr_info("ssv_init_module");
+
 	msleep(120);
+
 	g_wifidev_registered = 1;
 	ret = ssvdevice_init();
 
@@ -56,40 +59,26 @@ int initWlan(void)
 		msleep(500);
 		if(ssv6xxx_get_dev_status() == 1)
 			break;
-		printk("%s : Retry to carddetect\n",__func__);
+		pr_info("%s : Retry to carddetect\n",__func__);
 	}
 
 	return ret;
 
 }
-void exitWlan(void)
+static __exit void ssv_exit_module(void)
 {
-    if (g_wifidev_registered)
+
+    pr_info("ssv_exit_module");
+
+	if (g_wifidev_registered)
     {
         ssvdevice_exit();
         msleep(50);
         g_wifidev_registered = 0;
     }
+
     return;
-}
-static __init int ssv_init_module(void)
-{
-	printk("%s\n", __func__);
-#ifdef CONFIG_SSV_SUPPORT_AES_ASM
-	sha1_mod_init();
-	aes_init();
-#endif
-	return initWlan();
-}
-static __exit void ssv:exit_module(void)
-{
-	printk("%s\n", __func__);
-#ifdef CONFIG_SSV_SUPPORT_AES_ASM
-	aes_fini();
-	sha1_mod_fini();
-#endif
-    msleep(100);
-	exitWlan();
+
 }
 
 module_init(ssv_init_module);
