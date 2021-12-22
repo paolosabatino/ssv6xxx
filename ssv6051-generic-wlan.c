@@ -84,4 +84,7 @@ static __exit void ssv_exit_module(void)
 module_init(ssv_init_module);
 module_exit(ssv_exit_module);
 
+MODULE_AUTHOR("iComm Semiconductor Co., Ltd");
+MODULE_DESCRIPTION("Shared library for SSV wireless LAN cards.");
 MODULE_LICENSE("Dual BSD/GPL");
+
