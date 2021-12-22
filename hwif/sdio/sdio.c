@@ -30,9 +30,7 @@
 #include <linux/reboot.h>
 #include <linux/printk.h>
 #include <ssv6200.h>
-#ifdef CONFIG_FW_ALIGNMENT_CHECK
 #include <linux/skbuff.h>
-#endif
 
 #define SDIO_USE_SLOW_CLOCK
 #define LOW_SPEED_SDIO_CLOCK (25000000)
@@ -47,14 +45,9 @@
 #define FW_STATUS_REG ADR_TX_SEG
 #define FW_STATUS_MASK (0x00FF0000)
 
-#ifdef CONFIG_PM
 static int ssv6xxx_sdio_trigger_pmu(struct device *dev);
 static void ssv6xxx_sdio_reset(struct device *child);
-#else
-static void ssv6xxx_sdio_reset(struct device *child)
-{;
-}
-#endif
+
 static void ssv6xxx_high_sdio_clk(struct sdio_func *func);
 static void ssv6xxx_low_sdio_clk(struct sdio_func *func);
 extern void *ssv6xxx_ifdebug_info[];
@@ -73,9 +66,7 @@ u32 shutdown_flags = SSV_SYS_REBOOT;
 struct ssv6xxx_sdio_glue {
 	struct device *dev;
 	struct platform_device *core;
-#ifdef CONFIG_FW_ALIGNMENT_CHECK
 	struct sk_buff *dmaSkb;
-#endif
 #ifdef CONFIG_PM
 	struct sk_buff *cmd_skb;
 #endif
@@ -301,15 +292,12 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
 	u32 block_count = 0;
 	u32 res_size = 0, len = 0, tolen = 0;
 	void *fw_fp = NULL;
-#ifdef ENABLE_FW_SELF_CHECK
+
 	u32 checksum = FW_CHECKSUM_INIT;
 	u32 fw_checksum, fw_clkcnt;
 	u32 retry_count = 3;
 	u32 *fw_data32;
-#else
-	int writesize = 0;
-	u32 retry_count = 1;
-#endif
+
 	u32 word_count, i;
 	u32 j, jblk;
 #ifndef SDIO_USE_SLOW_CLOCK
@@ -530,15 +518,12 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 	u32 block_idx = 0;
 	u32 res_size;
 	u8 *fw_data;
-#ifdef ENABLE_FW_SELF_CHECK
+
 	u32 checksum = FW_CHECKSUM_INIT;
 	u32 fw_checksum;
 	u32 retry_count = 3;
 	u32 *fw_data32;
-#else
-	int writesize = 0;
-	u32 retry_count = 1;
-#endif
+
 #ifndef SDIO_USE_SLOW_CLOCK
 	struct sdio_func *func = NULL;
 	struct mmc_card *card = NULL;
@@ -563,7 +548,7 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 			pr_err("Failed to allocate buffer for firmware.\n");
 			goto out;
 		}
-#ifdef ENABLE_FW_SELF_CHECK
+
 		block_count = ssv6xxx_fw->size / CHECKSUM_BLOCK_SIZE;
 		res_size = ssv6xxx_fw->size % CHECKSUM_BLOCK_SIZE;
 		{
@@ -592,7 +577,7 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 		    ((checksum >> 24) + (checksum >> 16) + (checksum >> 8) +
 		     checksum) & 0x0FF;
 		checksum <<= 16;
-#endif
+
 		do {
 			u32 clk_en;
 			if (ssv6xxx_sdio_write_reg
@@ -603,7 +588,7 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 			if (ssv6xxx_sdio_write_reg
 			    (child, ADR_PLATFORM_CLOCK_ENABLE,
 			     clk_en | (1 << 2))) ;
-#ifdef ENABLE_FW_SELF_CHECK
+
 			block_count = ssv6xxx_fw->size / FW_BLOCK_SIZE;
 			res_size = ssv6xxx_fw->size % FW_BLOCK_SIZE;
 			printk("Writing %d blocks to SSV6XXX...", block_count);
@@ -635,37 +620,9 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 							     1) *
 							    CHECKSUM_BLOCK_SIZE);
 			}
-#else
-			block_count = ssv6xxx_fw->size / FW_BLOCK_SIZE;
-			res_size = ssv6xxx_fw->size % FW_BLOCK_SIZE;
-			writesize = sdio_align_size(func, res_size);
-			printk("Writing %d blocks to SSV6XXX...", block_count);
-			for (block_idx = 0, fw_data =
-			     (u8 *) ssv6xxx_fw->data, sram_addr = 0;
-			     block_idx < block_count;
-			     block_idx++, fw_data += FW_BLOCK_SIZE, sram_addr +=
-			     FW_BLOCK_SIZE) {
-				memcpy(fw_buffer, fw_data, FW_BLOCK_SIZE);
-				ret =
-				    ssv6xxx_sdio_write_sram(child, sram_addr,
-							    (u8 *) fw_buffer,
-							    FW_BLOCK_SIZE);
-				if (ret)
-					break;
-			}
-			if (res_size) {
-				memcpy(fw_buffer,
-				       &ssv6xxx_fw->data[block_count *
-							 FW_BLOCK_SIZE],
-				       res_size);
-				ret =
-				    ssv6xxx_sdio_write_sram(child, sram_addr,
-							    (u8 *) fw_buffer,
-							    writesize);
-			}
-#endif
+
 			if (ret == 0) {
-#ifdef ENABLE_FW_SELF_CHECK
+
 				block_count =
 				    ssv6xxx_fw->size / CHECKSUM_BLOCK_SIZE;
 				res_size =
@@ -675,12 +632,12 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 				if (ssv6xxx_sdio_write_reg
 				    (child, FW_STATUS_REG,
 				     (block_count << 16))) ;
-#endif
+
 				if (ssv6xxx_sdio_write_reg
 				    (child, ADR_BRG_SW_RST, 0x1)) ;
 				printk("Firmware \"%s\" loaded\n",
 				       firmware_name);
-#ifdef ENABLE_FW_SELF_CHECK
+
 				msleep(50);
 				if (ssv6xxx_sdio_read_reg
 				    (child, FW_STATUS_REG, &fw_checksum)) ;
@@ -698,7 +655,7 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 					     fw_checksum, checksum);
 					ret = -1;
 				}
-#endif
+
 			} else {
 				printk
 				    ("Firmware \"%s\" download failed. (%d)\n",
@@ -757,22 +714,6 @@ static int ssv6xxx_sdio_irq_getstatus(struct device *child, int *status)
 	return ret;
 }
 
-#if 0
-static void _sdio_hexdump(const u8 * buf, size_t len)
-{
-	size_t i;
-	printk("\n-----------------------------\n");
-	printk("hexdump(len=%lu):\n", (unsigned long)len);
-	{
-		for (i = 0; i < len; i++) {
-			printk(" %02x", buf[i]);
-			if ((i + 1) % 40 == 0)
-				printk("\n");
-		}
-	}
-	printk("\n-----------------------------\n");
-}
-#endif
 static int __must_check
 ssv6xxx_sdio_read(struct device *child, void *buf, size_t *size)
 {
@@ -810,10 +751,7 @@ ssv6xxx_sdio_read(struct device *child, void *buf, size_t *size)
 		}
 		sdio_release_host(func);
 	}
-#if 0
-	if (*size > 1500)
-		_sdio_hexdump(buf, *size);
-#endif
+
 	return ret;
 }
 
@@ -829,7 +767,6 @@ ssv6xxx_sdio_write(struct device *child, void *buf, size_t len, u8 queue_num)
 	    || (glue == NULL) || (glue->dev_ready == false))
 		return ret;
 	if (glue != NULL) {
-#ifdef CONFIG_FW_ALIGNMENT_CHECK
 #ifdef CONFIG_ARM64
 		if (((u64) buf) & 3) {
 #else
@@ -838,13 +775,9 @@ ssv6xxx_sdio_write(struct device *child, void *buf, size_t len, u8 queue_num)
 			memcpy(glue->dmaSkb->data, buf, len);
 			tempPointer = glue->dmaSkb->data;
 		} else
-#endif
 			tempPointer = buf;
-#if 0
-		if (len > 1500)
-			_sdio_hexdump(buf, len);
-#endif
-		func = dev_to_sdio_func(glue->dev);
+
+        func = dev_to_sdio_func(glue->dev);
 		sdio_claim_host(func);
 		writesize = sdio_align_size(func, len);
 		do {
@@ -1313,9 +1246,9 @@ ssv6xxx_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 	}
 	ssv6xxx_sdio_status = 1;
 	ssv6xxx_low_sdio_clk(func);
-#ifdef CONFIG_FW_ALIGNMENT_CHECK
+
 	glue->dmaSkb = __dev_alloc_skb(SDIO_DMA_BUFFER_LEN, GFP_KERNEL);
-#endif
+
 #ifdef CONFIG_PM
 	glue->cmd_skb = __dev_alloc_skb(SDIO_COMMAND_BUFFER_LEN, GFP_KERNEL);
 #endif
@@ -1379,10 +1312,10 @@ static void ssv6xxx_sdio_remove(struct sdio_func *func)
 		ssv6xxx_sdio_irq_disable(&glue->core->dev, false);
 		glue->dev_ready = false;
 		ssv6xxx_low_sdio_clk(func);
-#ifdef CONFIG_FW_ALIGNMENT_CHECK
+
 		if (glue->dmaSkb != NULL)
 			dev_kfree_skb(glue->dmaSkb);
-#endif
+
 		printk("ssv6xxx_sdio_remove - disable mask\n");
 		ssv6xxx_sdio_irq_setmask(&glue->core->dev, 0xff);
 #ifdef CONFIG_PM
@@ -1401,42 +1334,33 @@ static void ssv6xxx_sdio_remove(struct sdio_func *func)
 	printk("ssv6xxx_sdio_remove leave..........\n");
 }
 
-#ifdef CONFIG_PM
 static int ssv6xxx_sdio_trigger_pmu(struct device *dev)
 {
+
+    int ret = 0;
+
+#ifdef CONFIG_PM
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct ssv6xxx_sdio_glue *glue = sdio_get_drvdata(func);
 	struct cfg_host_cmd *host_cmd;
 	int writesize;
-	int ret = 0;
 	void *tempPointer;
-#ifdef SSV_WAKEUP_HOST
-	if (ssv6xxx_sdio_write_reg
-	    (dev, ADR_RX_FLOW_MNG,
-	     M_ENG_MACRX | (M_ENG_CPU << 4) | (M_ENG_HWHCI << 8))) ;
-	if (ssv6xxx_sdio_write_reg
-	    (dev, ADR_RX_FLOW_DATA,
-	     M_ENG_MACRX | (M_ENG_CPU << 4) | (M_ENG_HWHCI << 8))) ;
-	if (ssv6xxx_sdio_write_reg
-	    (dev, ADR_MRX_FLT_TB0 + 6 * 4, (sc->mac_deci_tbl[6] | 1))) ;
-#else
+
 	if (ssv6xxx_sdio_write_reg
 	    (dev, ADR_RX_FLOW_MNG, M_ENG_MACRX | (M_ENG_TRASH_CAN << 4))) ;
 	if (ssv6xxx_sdio_write_reg
 	    (dev, ADR_RX_FLOW_DATA, M_ENG_MACRX | (M_ENG_TRASH_CAN << 4))) ;
 	if (ssv6xxx_sdio_write_reg
 	    (dev, ADR_RX_FLOW_CTRL, M_ENG_MACRX | (M_ENG_TRASH_CAN << 4))) ;
-#endif
+
 	host_cmd = (struct cfg_host_cmd *)glue->cmd_skb->data;
 	host_cmd->c_type = HOST_CMD;
 	host_cmd->RSVD0 = 0;
 	host_cmd->h_cmd = (u8) SSV6XXX_HOST_CMD_PS;
 	host_cmd->len = sizeof(struct cfg_host_cmd);
-#ifdef SSV_WAKEUP_HOST
-	host_cmd->dummy = sc->ps_aid;
-#else
-	host_cmd->dummy = 0;
-#endif
+
+    host_cmd->dummy = 0;
+
 	{
 		tempPointer = glue->cmd_skb->data;
 		sdio_claim_host(func);
@@ -1460,11 +1384,17 @@ static int ssv6xxx_sdio_trigger_pmu(struct device *dev)
 		if (ret)
 			dev_err(glue->dev, "sdio write failed (%d)\n", ret);
 	}
+
+#endif
+
 	return ret;
+
 }
 
 static void ssv6xxx_sdio_reset(struct device *child)
 {
+
+#ifdef CONFIG_PM
 	struct ssv6xxx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func = dev_to_sdio_func(glue->dev);
 	printk("%s\n", __FUNCTION__);
@@ -1472,8 +1402,13 @@ static void ssv6xxx_sdio_reset(struct device *child)
 		return;
 	ssv6xxx_sdio_trigger_pmu(glue->dev);
 	ssv6xxx_do_sdio_wakeup(func);
+#endif
+
+    return;
+
 }
 
+#ifdef CONFIG_PM
 static int ssv6xxx_sdio_suspend(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
@@ -1495,9 +1430,6 @@ static int ssv6xxx_sdio_suspend(struct device *dev)
 		if (ret)
 			return ret;
 		mdelay(10);
-#ifdef SSV_WAKEUP_HOST
-		ret = sdio_set_host_pm_flags(func, MMC_PM_WAKE_SDIO_IRQ);
-#endif
 		return ret;
 	}
 }
@@ -1536,31 +1468,20 @@ struct sdio_driver ssv6xxx_sdio_driver = {
 };
 
 EXPORT_SYMBOL(ssv6xxx_sdio_driver);
-#if (defined(CONFIG_SSV_SUPPORT_ANDROID)||defined(CONFIG_SSV_BUILD_AS_ONE_KO))
+
 int ssv6xxx_sdio_init(void)
-#else
-static int __init ssv6xxx_sdio_init(void)
-#endif
 {
 	printk(KERN_INFO "ssv6xxx_sdio_init\n");
 	return sdio_register_driver(&ssv6xxx_sdio_driver);
 }
 
-#if (defined(CONFIG_SSV_SUPPORT_ANDROID)||defined(CONFIG_SSV_BUILD_AS_ONE_KO))
 void ssv6xxx_sdio_exit(void)
-#else
-static void __exit ssv6xxx_sdio_exit(void)
-#endif
 {
 	printk(KERN_INFO "ssv6xxx_sdio_exit\n");
 	sdio_unregister_driver(&ssv6xxx_sdio_driver);
 }
 
-#if (defined(CONFIG_SSV_SUPPORT_ANDROID)||defined(CONFIG_SSV_BUILD_AS_ONE_KO))
 EXPORT_SYMBOL(ssv6xxx_sdio_init);
 EXPORT_SYMBOL(ssv6xxx_sdio_exit);
-#else
-module_init(ssv6xxx_sdio_init);
-module_exit(ssv6xxx_sdio_exit);
-#endif
+
 MODULE_LICENSE("GPL");
