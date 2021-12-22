@@ -1483,5 +1483,3 @@ void ssv6xxx_sdio_exit(void)
 
 EXPORT_SYMBOL(ssv6xxx_sdio_init);
 EXPORT_SYMBOL(ssv6xxx_sdio_exit);
-
-MODULE_LICENSE("GPL");
