@@ -18,9 +18,6 @@
 #define _AMPDU_H_ 
 #include <linux/version.h>
 #include <ssv6200_common.h>
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-#include "linux_2_6_35.h"
-#endif
 #define Enable_ampdu_debug_log (0)
 #define Enable_AMPDU_Live_Time (0)
 #define Enable_HW_AUTO_CRC_32 (1)
