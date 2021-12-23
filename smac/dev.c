@@ -33,33 +33,21 @@
 #include "ap.h"
 #include "init.h"
 #include "p2p.h"
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
 #include "ssv_pm.h"
-#endif
-#ifdef MULTI_THREAD_ENCRYPT
 #include <linux/freezer.h>
-#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,2,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 #include "linux_3_0_0.h"
 #endif
-#ifdef CONFIG_SSV6XXX_DEBUGFS
 #include "ssv6xxx_debugfs.h"
-#endif
-#ifdef CONFIG_SSV_RSSI
 struct rssi_res_st rssi_res, *p_rssi_res;
-#endif
 #define NO_USE_RXQ_LOCK 
 #ifndef WLAN_CIPHER_SUITE_SMS4
 #define WLAN_CIPHER_SUITE_SMS4 0x00147201
 #endif
-#ifdef ENABLE_TX_Q_FLOW_CONTROL
-#ifdef MULTI_THREAD_ENCRYPT
 #define MAX_CRYPTO_Q_LEN (64)
 #define LOW_CRYPTO_Q_LEN (MAX_CRYPTO_Q_LEN/2)
-#endif
 #define MAX_TX_Q_LEN (64)
 #define LOW_TX_Q_LEN (MAX_TX_Q_LEN/2)
-#endif
 static u16 bits_per_symbol[][2] =
 {
     { 26, 54 },
@@ -83,7 +71,6 @@ struct ssv6xxx_calib_table {
 };
 static void _process_rx_q (struct ssv_softc *sc, struct sk_buff_head *rx_q, spinlock_t *rx_q_lock);
 static u32 _process_tx_done (struct ssv_softc *sc);
-#ifdef MULTI_THREAD_ENCRYPT
 static u32 _remove_sta_skb_from_q (struct ssv_softc *sc, struct sk_buff_head *q,
                                    u32 addr0_3, u32 addr4_5);
 #ifdef CONFIG_DEBUG_SKB_TIMESTAMP
@@ -104,8 +91,6 @@ unsigned int skb_queue_len_safe(struct sk_buff_head *list)
     spin_unlock_irqrestore(&list->lock, flags);
     return ret;
 }
-#endif
-#if 1
 void _ssv6xxx_hexdump(const char *title, const u8 *buf,
                              size_t len)
 {
@@ -122,7 +107,6 @@ void _ssv6xxx_hexdump(const char *title, const u8 *buf,
     }
     printk("\n-----------------------------\n");
 }
-#endif
 void ssv6xxx_txbuf_free_skb(struct sk_buff *skb, void *args)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
@@ -305,7 +289,6 @@ int ssv6xxx_set_channel(struct ssv_softc *sc, int ch)
     return ret;
 }
 #endif
-#ifdef CONFIG_SSV_CABRIO_E
 static const struct ssv6xxx_calib_table vt_tbl[SSV6XXX_IQK_CFG_XTAL_MAX][14]=
 {
     {
@@ -446,25 +429,6 @@ int ssv6xxx_set_channel(struct ssv_softc *sc, int ch)
             {
                 if ((ret = SMAC_REG_READ(sc->sh, ADR_READ_ONLY_FLAGS_2, &regval)) != 0) break;
                 ret = ssv6xxx_rf_enable(sc->sh);
-#if 0
-                printk("Lock to channel %d ([0xce010098]=%x)!!\n", vt_tbl[sh->cfg.crystal_type][chidx].channel_id, regval);
-                printk("crystal_type [%d]\n",sh->cfg.crystal_type);
-                SMAC_REG_READ(sc->sh, 0xce010040, &regval);
-                printk("0xce010040 [%x]\n",regval);
-                SMAC_REG_READ(sc->sh, 0xce0100a4, &regval);
-                printk("0xce0100a4 [%x]\n",regval);
-                SMAC_REG_READ(sc->sh, ADR_DPLL_DIVIDER_REGISTER, &regval);
-                printk("0xce010060 [%x]\n",regval);
-                SMAC_REG_READ(sc->sh, ADR_SX_ENABLE_REGISTER, &regval);
-                printk("0xce010038 [%x]\n",regval);
-                SMAC_REG_READ(sc->sh, 0xce01003C, &regval);
-                printk("0xce01003C [%x]\n",regval);
-                SMAC_REG_READ(sc->sh, ADR_DPLL_FB_DIVIDER_REGISTERS_I, &regval);
-                printk("0xce01009c [%x]\n",regval);
-                SMAC_REG_READ(sc->sh, ADR_DPLL_FB_DIVIDER_REGISTERS_II, &regval);
-                printk("0xce0100a0 [%x]\n",regval);
-                printk("[%x][%x][%x]\n",vt_tbl[sh->cfg.crystal_type][chidx].rf_ctrl_N,vt_tbl[sh->cfg.crystal_type][chidx].rf_ctrl_F,vt_tbl[sh->cfg.crystal_type][chidx].rf_precision_default);
-#endif
                 //dev_info(sc->dev, "Lock to channel %d ([0xce010098]=%x)!!\n", vt_tbl[sh->cfg.crystal_type][chidx].channel_id, regval);
                 sc->hw_chan = ch;
                 goto exit;
@@ -550,7 +514,6 @@ int ssv6xxx_get_promisc(struct ssv_softc *sc, int *paccept)
     return 0;
 }
 #endif
-#endif
 int ssv6xxx_rf_enable(struct ssv_hw *sh)
 {
     return SMAC_REG_SET_BITS(sh,
@@ -606,50 +569,6 @@ static int ssv6xxx_frame_hdrlen(struct ieee80211_hdr *hdr, bool is_ht)
     }
     return hdr_len;
 }
-#if 0
-static void ssv6xxx_dump_tx_desc(struct sk_buff *skb)
-{
-    struct ssv6200_tx_desc *tx_desc;
-    int s;
-    u8 *dat;
-    tx_desc = (struct ssv6200_tx_desc *)skb->data;
-    printk(">> Tx Frame:\n");
-    for(s=0, dat=skb->data; s<tx_desc->hdr_len; s++) {
-        printk("%02x ", dat[sizeof(*tx_desc)+s]);
-        if (((s+1)& 0x0F) == 0)
-            printk("\n");
-    }
-    printk("length: %d, c_type=%d, f80211=%d, qos=%d, ht=%d, use_4addr=%d, sec=%d\n",
-        tx_desc->len, tx_desc->c_type, tx_desc->f80211, tx_desc->qos, tx_desc->ht,
-        tx_desc->use_4addr, tx_desc->security);
-    printk("more_data=%d, sub_type=%x, extra_info=%d\n", tx_desc->more_data,
-        tx_desc->stype_b5b4, tx_desc->extra_info);
-    printk("fcmd=0x%08x, hdr_offset=%d, frag=%d, unicast=%d, hdr_len=%d\n",
-        tx_desc->fCmd, tx_desc->hdr_offset, tx_desc->frag, tx_desc->unicast,
-        tx_desc->hdr_len);
-    printk("tx_burst=%d, ack_policy=%d, do_rts_cts=%d, reason=%d, payload_offset=%d\n",
-        tx_desc->tx_burst, tx_desc->ack_policy, tx_desc->do_rts_cts,
-        tx_desc->reason, tx_desc->payload_offset);
-    printk("fcmdidx=%d, wsid=%d, txq_idx=%d\n",
-         tx_desc->fCmdIdx, tx_desc->wsid, tx_desc->txq_idx);
-    printk("RTS/CTS Nav=%d, frame_time=%d, crate_idx=%d, drate_idx=%d, dl_len=%d\n",
-        tx_desc->rts_cts_nav, tx_desc->frame_consume_time, tx_desc->crate_idx, tx_desc->drate_idx,
-        tx_desc->dl_length);
-}
-static void ssv6xxx_dump_rx_desc(struct sk_buff *skb)
-{
-    struct ssv6200_rx_desc *rx_desc;
-    rx_desc = (struct ssv6200_rx_desc *)skb->data;
-    printk(">> RX Descriptor:\n");
-    printk("len=%d, c_type=%d, f80211=%d, qos=%d, ht=%d, use_4addr=%d, l3cs_err=%d, l4_cs_err=%d\n",
-        rx_desc->len, rx_desc->c_type, rx_desc->f80211, rx_desc->qos, rx_desc->ht, rx_desc->use_4addr,
-        rx_desc->l3cs_err, rx_desc->l4cs_err);
-    printk("align2=%d, psm=%d, stype_b5b4=%d, extra_info=%d\n",
-        rx_desc->align2, rx_desc->psm, rx_desc->stype_b5b4, rx_desc->extra_info);
-    printk("hdr_offset=%d, reason=%d, rx_result=%d\n", rx_desc->hdr_offset,
-        rx_desc->reason, rx_desc->RxResult);
-}
-#endif
 static u32 ssv6xxx_ht_txtime(u8 rix, int pktlen, int width,
                 int half_gi, bool is_gf)
 {
@@ -859,7 +778,6 @@ void ssv6xxx_reset_sec_module(struct ssv_softc *sc)
     ssv6200_hw_set_group_type(sc->sh, ME_NONE);
     ssv6200_hw_set_pair_type(sc->sh, ME_NONE);
 }
-#ifdef FW_WSID_WATCH_LIST
 static int hw_update_watch_wsid(struct ssv_softc *sc, struct ieee80211_sta *sta,
         struct ssv_sta_info *sta_info, int sta_idx, int rx_hw_sec, int ops)
 {
@@ -899,23 +817,15 @@ static int hw_update_watch_wsid(struct ssv_softc *sc, struct ieee80211_sta *sta,
         sta_info->hw_wsid = sta_idx;
     return ret;
 }
-#endif
 static void hw_crypto_key_clear(struct ieee80211_hw *hw, int index, struct ieee80211_key_conf *key,
                                 struct ssv_vif_priv_data *vif_priv, struct ssv_sta_priv_data *sta_priv)
 {
-#ifdef FW_WSID_WATCH_LIST
     struct ssv_softc *sc = hw->priv;
     struct ssv_sta_info *sta_info = NULL;
     if ((index == 0) && (sta_priv == NULL))
         return;
-#endif
     if ((index < 0) || (index >= 4))
         return;
-    #if 0
-    if(sta_info){
-        sta_info->s_flags &= ~STA_FLAG_ENCRYPT;
-    }
-    #endif
     if (index > 0)
     {
         if (vif_priv)
@@ -923,7 +833,6 @@ static void hw_crypto_key_clear(struct ieee80211_hw *hw, int index, struct ieee8
         if (sta_priv)
             sta_priv->group_key_idx = 0;
     }
-#ifdef FW_WSID_WATCH_LIST
     if(sta_priv)
     {
         sta_info = &sc->sta_info[sta_priv->sta_idx];
@@ -949,20 +858,6 @@ static void hw_crypto_key_clear(struct ieee80211_hw *hw, int index, struct ieee8
             }
         }
     }
-#endif
-    #if 0
-    if (index == 0) {
-        address = sec_key_tbl+(3*sizeof(struct ssv6xxx_hw_key))
-            + wsid*sizeof(struct ssv6xxx_hw_sta_key);
-        for(i=0;i<(sizeof(struct ssv6xxx_hw_sta_key)/4);i++)
-            SMAC_REG_WRITE(sc->sh, address+i*4, 0x0);
-    }
-    else{
-        address = sec_key_tbl+((index-1)*sizeof(struct ssv6xxx_hw_key));
-        for(i=0;i<(sizeof(struct ssv6xxx_hw_key)/4);i++)
-            SMAC_REG_WRITE(sc->sh,address+i*4, 0x0);
-    }
-    #endif
 }
 static void _set_wep_sw_crypto_key (struct ssv_softc *sc,
                                          struct ssv_vif_info *vif_info,
@@ -975,10 +870,8 @@ static void _set_wep_sw_crypto_key (struct ssv_softc *sc,
     sta_priv->has_hw_decrypt = vif_priv->has_hw_decrypt;
     sta_priv->need_sw_encrypt = vif_priv->need_sw_encrypt;
     sta_priv->need_sw_decrypt = vif_priv->need_sw_decrypt;
-#ifdef USE_LOCAL_WEP_CRYPTO
     sta_priv->crypto_data.ops = vif_priv->crypto_data.ops;
     sta_priv->crypto_data.priv = vif_priv->crypto_data.priv;
-#endif
 }
 static void _set_wep_hw_crypto_pair_key (struct ssv_softc *sc,
                                          struct ssv_vif_info *vif_info,
@@ -989,11 +882,7 @@ static void _set_wep_hw_crypto_pair_key (struct ssv_softc *sc,
     struct ssv6xxx_hw_sec *sram_key = (struct ssv6xxx_hw_sec *)param;
     int address = 0;
     int *pointer = NULL;
-#ifdef SSV6200_ECO
     u32 sec_key_tbl_base = sc->sh->hw_sec_key[0];
-#else
-    u32 sec_key_tbl_base = sc->sh->hw_sec_key;
-#endif
     u32 sec_key_tbl = sec_key_tbl_base;
     int i;
     u8 *key = sram_key->sta_key[0].pair.key;
@@ -1013,15 +902,8 @@ static void _set_wep_hw_crypto_pair_key (struct ssv_softc *sc,
     address = sec_key_tbl
               + (3*sizeof(struct ssv6xxx_hw_key))
               + wsid*sizeof(struct ssv6xxx_hw_sta_key);
-#ifdef SSV6200_ECO
     address += (0x10000*wsid);
-#endif
     pointer = (int *)&sram_key->sta_key[wsid];
-    #if 0
-    printk(KERN_ERR "Set STA %d WEP pairwise key to %08X.", wsid, address);
-    printk(KERN_ERR "Set WEP %02X %02X %02X %02X %02X %02X %02X %02X... \n",
-           key[0], key[1], key[2], key[3], key[4], key[5], key[6], key[7]);
-    #endif
     for (i = 0; i < (sizeof(struct ssv6xxx_hw_sta_key)/4); i++)
         SMAC_REG_WRITE(sc->sh, address+(i*4), *(pointer++));
 }
@@ -1035,13 +917,9 @@ static void _set_wep_hw_crypto_group_key (struct ssv_softc *sc,
     int address = 0;
     int *pointer = NULL;
     u32 key_idx = sram_key->sta_key[0].pair_key_idx;
-#ifdef SSV6200_ECO
     u32 sec_key_tbl_base = sc->sh->hw_sec_key[0];
     u32 key_len = *(u16 *)&sram_key->sta_key[0].reserve[0];
     u8 *key = sram_key->group_key[key_idx - 1].key;
-#else
-    u32 sec_key_tbl_base = sc->sh->hw_sec_key;
-#endif
     u32 sec_key_tbl = sec_key_tbl_base;
     struct ssv_sta_priv_data *sta_priv = (struct ssv_sta_priv_data *)sta_info->sta->drv_priv;
     struct ssv_vif_priv_data *vif_priv = (struct ssv_vif_priv_data *)vif_info->vif->drv_priv;
@@ -1056,7 +934,6 @@ static void _set_wep_hw_crypto_group_key (struct ssv_softc *sc,
         sta_priv->need_sw_encrypt = vif_priv->need_sw_encrypt;
         sta_priv->need_sw_decrypt = vif_priv->need_sw_decrypt;
     }
-#ifdef SSV6200_ECO
     if (wsid != 0)
         memcpy(sram_key->group_key[key_idx - 1].key, key, key_len);
     sec_key_tbl += (0x10000 * wsid);
@@ -1068,7 +945,6 @@ static void _set_wep_hw_crypto_group_key (struct ssv_softc *sc,
     for (i = 0; i < (sizeof(struct ssv6xxx_hw_key)/4); i++)
         SMAC_REG_WRITE(sc->sh, address+(i*4), *(pointer++));
     }
-#endif
     address = sec_key_tbl
               + (3*sizeof(struct ssv6xxx_hw_key))
               + (wsid*sizeof(struct ssv6xxx_hw_sta_key));
@@ -1082,27 +958,12 @@ static int hw_crypto_key_write_wep(struct ieee80211_hw *hw,
 {
     struct ssv_softc *sc = hw->priv;
     struct ssv6xxx_hw_sec *sramKey = &vif_info->sramKey;
-#ifndef SSV6200_ECO
-    int address = 0x00;
-    int *pointer=NULL;
-    u32 sec_key_tbl=sc->sh->hw_sec_key;
-    int i;
-#endif
-#ifdef FW_WSID_WATCH_LIST
-#endif
     if (key->keyidx == 0)
     {
         ssv6xxx_foreach_vif_sta(sc, vif_info, _set_wep_hw_crypto_pair_key, sramKey);
     }
     else
     {
-#ifndef SSV6200_ECO
-        address = sec_key_tbl
-                  + ((key->keyidx-1) * sizeof(struct ssv6xxx_hw_key));
-        pointer = (int *)&sramKey->group_key[key->keyidx-1];
-        for (i=0;i<(sizeof(struct ssv6xxx_hw_key)/4);i++)
-           SMAC_REG_WRITE(sc->sh, address+(i*4), *(pointer++));
-#endif
         ssv6xxx_foreach_vif_sta(sc, vif_info, _set_wep_hw_crypto_group_key, sramKey);
     }
     return 0;
@@ -1113,12 +974,8 @@ static void _set_aes_tkip_hw_crypto_group_key (struct ssv_softc *sc,
                                                void *param)
 {
     int wsid = sta_info->hw_wsid;
-#ifdef SSV6200_ECO
     int j;
     u32 sec_key_tbl_base = sc->sh->hw_sec_key[0];
-#else
-    u32 sec_key_tbl_base = sc->sh->hw_sec_key;
-#endif
     u32 sec_key_tbl = sec_key_tbl_base;
     int address = 0;
     int *pointer = 0;
@@ -1128,7 +985,6 @@ static void _set_aes_tkip_hw_crypto_group_key (struct ssv_softc *sc,
         return;
     BUG_ON(index == 0);
     sramKey->sta_key[wsid].group_key_idx = index;
-#ifdef SSV6200_ECO
     sec_key_tbl += (0x10000 * wsid);
     address = sec_key_tbl
               + ((index-1) * sizeof(struct ssv6xxx_hw_key));
@@ -1140,19 +996,16 @@ static void _set_aes_tkip_hw_crypto_group_key (struct ssv_softc *sc,
     pointer = (int *)&sramKey->group_key[index-1];
     for (j = 0; j < (sizeof(struct ssv6xxx_hw_key)/4); j++)
         SMAC_REG_WRITE(sc->sh, address+(j*4), *(pointer++));
-#endif
     address = sec_key_tbl
               + (3*sizeof(struct ssv6xxx_hw_key))
               + (wsid * sizeof(struct ssv6xxx_hw_sta_key));
     pointer = (int *)&sramKey->sta_key[wsid];
     SMAC_REG_WRITE(sc->sh, address, *(pointer));
-#ifdef FW_WSID_WATCH_LIST
     if (wsid >= SSV_NUM_HW_STA)
     {
         hw_update_watch_wsid(sc, sta_info->sta, sta_info,
             wsid, SSV6XXX_WSID_SEC_GROUP, SSV6XXX_WSID_OPS_ENABLE_CAPS);
     }
-#endif
 }
 static int _write_pairwise_key_to_hw (struct ssv_softc *sc,
                                       int index, u8 algorithm,
@@ -1165,11 +1018,7 @@ static int _write_pairwise_key_to_hw (struct ssv_softc *sc,
     struct ssv6xxx_hw_sec *sramKey;
     int address = 0;
     int *pointer = NULL;
-#ifdef SSV6200_ECO
     u32 sec_key_tbl_base = sc->sh->hw_sec_key[0];
-#else
-    u32 sec_key_tbl_base = sc->sh->hw_sec_key;
-#endif
     u32 sec_key_tbl;
     int wsid = (-1);
     if (sta_priv == NULL)
@@ -1183,31 +1032,24 @@ static int _write_pairwise_key_to_hw (struct ssv_softc *sc,
         dev_err(sc->dev, "Set pair-wise key to invalid WSID %d.\n", wsid);
         return -EOPNOTSUPP;
     }
-    #if 0
-    sta_info->s_flags |= STA_FLAG_ENCRYPT;
-    #endif
     dev_dbg(sc->dev, "Set STA %d's pair-wise key of %d bytes.\n", wsid, key_len);
     sramKey = &(sc->vif_info[vif_priv->vif_idx].sramKey);
     sramKey->sta_key[wsid].pair_key_idx = 0;
     sramKey->sta_key[wsid].group_key_idx = vif_priv->group_key_idx;
     memcpy(sramKey->sta_key[wsid].pair.key, key, key_len);
     sec_key_tbl = sec_key_tbl_base;
-    #ifdef SSV6200_ECO
     sec_key_tbl += (0x10000 * wsid);
-    #endif
     address = sec_key_tbl
               + (3 * sizeof(struct ssv6xxx_hw_key))
               + wsid * sizeof(struct ssv6xxx_hw_sta_key);
     pointer = (int *)&sramKey->sta_key[wsid];
     for (i = 0; i < (sizeof(struct ssv6xxx_hw_sta_key)/4); i++)
         SMAC_REG_WRITE(sc->sh, (address + (i*4)), *(pointer++));
-#ifdef FW_WSID_WATCH_LIST
     if (wsid >= SSV_NUM_HW_STA)
     {
         hw_update_watch_wsid(sc, sta_priv->sta_info->sta, sta_priv->sta_info,
             sta_priv->sta_idx, SSV6XXX_WSID_SEC_PAIRWISE, SSV6XXX_WSID_OPS_ENABLE_CAPS);
     }
-#endif
     return 0;
 }
 static int _write_group_key_to_hw (struct ssv_softc *sc,
@@ -1218,12 +1060,6 @@ static int _write_group_key_to_hw (struct ssv_softc *sc,
                                    struct ssv_sta_priv_data *sta_priv)
 {
     struct ssv6xxx_hw_sec *sramKey;
-#ifndef SSV6200_ECO
-    u32 sec_key_tbl_base = sc->sh->hw_sec_key;
-    int address = 0;
-    int *pointer = NULL;
-    int i;
-#endif
     int wsid = sta_priv ? sta_priv->sta_info->hw_wsid : (-1);
     int ret = 0;
     if (vif_priv == NULL)
@@ -1238,12 +1074,6 @@ static int _write_group_key_to_hw (struct ssv_softc *sc,
     if (sta_priv)
         sta_priv->group_key_idx = index;
     memcpy(sramKey->group_key[index-1].key, key, key_len);
-    #ifndef SSV6200_ECO
-    address = sec_key_tbl_base + ((index-1)*sizeof(struct ssv6xxx_hw_key));
-    pointer = (int *)&sramKey->group_key[index-1];
-    for (i = 0; i < (sizeof(struct ssv6xxx_hw_key)/4); i++)
-         SMAC_REG_WRITE(sc->sh, address+(i*4), *(pointer++));
-    #endif
     WARN_ON(sc->vif_info[vif_priv->vif_idx].vif_priv == NULL);
     ssv6xxx_foreach_vif_sta(sc, &sc->vif_info[vif_priv->vif_idx],
                             _set_aes_tkip_hw_crypto_group_key, &index);
@@ -1273,12 +1103,10 @@ static enum SSV_CIPHER_E _prepare_key (struct ieee80211_key_conf *key)
 #endif
             cipher = SSV_CIPHER_CCMP;
             break;
-#ifdef CONFIG_SSV_WAPI
         case WLAN_CIPHER_SUITE_SMS4:
             printk("[I] %s, algorithm = WLAN_CIPHER_SUITE_SMS4\n", __func__);
             cipher = SSV_CIPHER_SMS4;
             break;
-#endif
         default:
             cipher = SSV_CIPHER_INVALID;
             break;
@@ -1333,12 +1161,10 @@ int _set_key_wep (struct ssv_softc *sc, struct ssv_vif_priv_data *vif_priv,
     {
         memcpy(sram_key->group_key[key->keyidx - 1].key, key->key, key->keylen);
     }
-    #if 1
     if (sc->sh->cfg.use_wpa2_only)
     {
         dev_warn(sc->dev, "Use WPA2 HW security mode only.\n");
     }
-    #endif
     if ( (sc->sh->cfg.use_wpa2_only == 0)
         && vif_priv->vif_idx == 0)
     {
@@ -1353,7 +1179,6 @@ int _set_key_wep (struct ssv_softc *sc, struct ssv_vif_priv_data *vif_priv,
                                 &sc->vif_info[vif_priv->vif_idx]);
     }
     else
-    #ifdef USE_LOCAL_WEP_CRYPTO
     {
         INIT_WRITE_CRYPTO_DATA(crypto_data, &vif_priv->crypto_data);
         vif_priv->has_hw_decrypt = false;
@@ -1390,17 +1215,6 @@ int _set_key_wep (struct ssv_softc *sc, struct ssv_vif_priv_data *vif_priv,
         ssv6xxx_foreach_vif_sta(sc, vif_info, _set_wep_sw_crypto_key, NULL);
         END_WRITE_CRYPTO_DATA(crypto_data);
     }
-    #else
-    {
-        vif_priv->has_hw_decrypt = false;
-        vif_priv->has_hw_encrypt = false;
-        vif_priv->need_sw_decrypt = false;
-        vif_priv->need_sw_encrypt = false;
-        vif_priv->use_mac80211_decrypt = true;
-        ssv6xxx_foreach_vif_sta(sc, vif_info, _set_wep_sw_crypto_key, NULL);
-        ret = -EOPNOTSUPP;
-    }
-    #endif
     vif_priv->pair_cipher = vif_priv->group_cipher = cipher;
     vif_priv->is_security_valid = true;
     return ret;
@@ -1422,12 +1236,10 @@ static int _set_pairwise_key_tkip_ccmp (struct ssv_softc *sc, struct ssv_vif_pri
         dev_err(sc->dev, "Setting pairwise TKIP/CCMP key to NULL STA.\n");
         return -EOPNOTSUPP;
     }
-    #if 1
     if (sc->sh->cfg.use_wpa2_only)
     {
         dev_warn(sc->dev, "Use WPA2 HW security mode only.\n");
     }
-    #endif
     if (vif_info->if_type == NL80211_IFTYPE_STATION){
         struct ssv_sta_priv_data *first_sta_priv =
                 list_first_entry(&vif_priv->sta_list, struct ssv_sta_priv_data, list);
@@ -1510,7 +1322,6 @@ static int _set_pairwise_key_tkip_ccmp (struct ssv_softc *sc, struct ssv_vif_pri
         ret = -EOPNOTSUPP;
         #endif
     }
-    #ifdef USE_LOCAL_CRYPTO
     if (sta_priv->need_sw_encrypt || sta_priv->need_sw_decrypt)
     {
         struct ssv_crypto_ops *temp_crypt;
@@ -1555,17 +1366,9 @@ static int _set_pairwise_key_tkip_ccmp (struct ssv_softc *sc, struct ssv_vif_pri
         }
         END_WRITE_CRYPTO_DATA(crypto_data);
     }
-    #endif
     if (sta_priv->has_hw_encrypt || sta_priv->has_hw_decrypt)
     {
         ssv6200_hw_set_pair_type(sc->sh, cipher);
-#if 0
-        ssv6200_hw_set_pair_type(sc->sh, SSV_CIPHER_NONE);
-        sta_priv->has_hw_encrypt = false;
-        sta_priv->has_hw_decrypt = false;
-        sta_priv->need_sw_encrypt = true;
-        sta_priv->need_sw_encrypt = true;
-#endif
         _write_pairwise_key_to_hw(sc, key->keyidx, cipher,
                                   key->key, key->keylen, key,
                                   vif_priv, sta_priv);
@@ -1586,12 +1389,10 @@ static int _set_group_key_tkip_ccmp (struct ssv_softc *sc, struct ssv_vif_priv_d
     const char *cipher_name = (cipher == SSV_CIPHER_CCMP) ? "CCMP" : "TKIP";
     bool tkip_use_sw_cipher = false;
     vif_priv->group_cipher = cipher;
-    #if 1
     if (sc->sh->cfg.use_wpa2_only)
     {
         dev_warn(sc->dev, "Use WPA2 HW security mode only.\n");
     }
-    #endif
     if ((cipher == SSV_CIPHER_TKIP) && (sc->sh->cfg.use_wpa2_only == 1)){
       tkip_use_sw_cipher = true;
     }
@@ -1614,20 +1415,11 @@ static int _set_group_key_tkip_ccmp (struct ssv_softc *sc, struct ssv_vif_priv_d
     {
         vif_priv->has_hw_decrypt = false;
         vif_priv->has_hw_encrypt = false;
-        #ifdef USE_LOCAL_CRYPTO
         vif_priv->need_sw_encrypt = true;
         vif_priv->need_sw_decrypt = true;
         vif_priv->use_mac80211_decrypt = false;
         ret = 0;
-        #else
-        dev_err(sc->dev, "VIF %d uses MAC80211's %s cipher.\n", vif_priv->vif_idx, cipher_name);
-        vif_priv->need_sw_encrypt = false;
-        vif_priv->need_sw_encrypt = false;
-        vif_priv->use_mac80211_decrypt = true;
-        ret = -EOPNOTSUPP;
-        #endif
     }
-    #ifdef USE_LOCAL_CRYPTO
     if (vif_priv->need_sw_encrypt || vif_priv->need_sw_decrypt)
     {
         struct ssv_crypto_ops *temp_crypt = NULL;
@@ -1669,7 +1461,6 @@ static int _set_group_key_tkip_ccmp (struct ssv_softc *sc, struct ssv_vif_priv_d
         }
         END_WRITE_CRYPTO_DATA(crypto_data);
     }
-    #endif
     if (vif_priv->has_hw_encrypt || vif_priv->has_hw_decrypt)
     {
         #ifdef USE_MAC80211_DECRYPT_BROADCAST
@@ -1716,7 +1507,6 @@ static int _set_key_tkip_ccmp (struct ssv_softc *sc, struct ssv_vif_priv_data *v
     else
         return _set_group_key_tkip_ccmp(sc, vif_priv, sta_priv, cipher, key);
 }
-#ifdef USE_LOCAL_SMS4_CRYPTO
 static int _set_pairwise_key_sms4 (struct ssv_softc *sc, struct ssv_vif_priv_data *vif_priv,
                                struct ssv_sta_priv_data *sta_priv, enum SSV_CIPHER_E cipher,
                                struct ieee80211_key_conf *key)
@@ -1796,7 +1586,6 @@ static int _set_key_sms4 (struct ssv_softc *sc, struct ssv_vif_priv_data *vif_pr
     else
         return _set_group_key_sms4(sc, vif_priv, sta_priv, cipher, key);
 }
-#endif
 static int ssv6200_set_key(struct ieee80211_hw *hw,
                            enum set_key_cmd cmd,
                            struct ieee80211_vif *vif,
@@ -1811,18 +1600,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
     struct ssv_sta_priv_data *sta_priv = NULL;
     struct ssv_vif_priv_data *vif_priv = (struct ssv_vif_priv_data *)vif->drv_priv;
     struct ssv_vif_info *vif_info = &sc->vif_info[vif_priv->vif_idx];
-#if 0
-    int another_vif_idx = ((vif_priv->vif_idx + 1) % 2);
-    struct ssv_vif_priv_data *another_vif_priv = NULL;
-    u32 another_vif_pair_cipher = 0;
-    u32 another_vif_group_cipher = 0;
-    if (sc->vif_info[another_vif_idx].vif)
-    {
-        another_vif_priv = sc->vif_info[another_vif_idx].vif_priv;
-        another_vif_pair_cipher = another_vif_priv->pair_cipher;
-        another_vif_group_cipher = another_vif_priv->group_cipher;
-    }
-#endif
     if (sta)
     {
         sta_priv = (struct ssv_sta_priv_data *)sta->drv_priv;
@@ -1835,13 +1612,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
         dev_warn(sc->dev, "HW does not support security.\n");
         return -EOPNOTSUPP;
     }
-    #ifndef USE_LOCAL_CRYPTO
-    if (sta_info && (sta_info->hw_wsid == (-1)))
-    {
-        dev_warn(sc->dev, "Add STA without HW resource. Use MAC80211's solution.\n");
-        return -EOPNOTSUPP;
-    }
-    #endif
     cipher = _prepare_key(key);
     dev_err(sc->dev,"Set key VIF %d VIF type %d STA %d algorithm = %d, key->keyidx = %d, cmd = %d\n",
             vif_priv->vif_idx, vif->type, sta_idx, cipher, key->keyidx, cmd);
@@ -1855,26 +1625,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
     {
         case SET_KEY:
             {
-                #if 0
-                int i;
-                printk("================================SET KEY=======================================\n");
-                if (sta_info == NULL)
-                {
-                    printk("NULL STA cmd[%d] alg[%d] keyidx[%d] ", cmd, algorithm, key->keyidx);
-                }
-                else
-                {
-                    printk("STA WSID[%d] cmd[%d] alg[%d] keyidx[%d] ", sta_info->hw_wsid, cmd, algorithm, key->keyidx);
-                }
-                printk("SET_KEY index[%d] flags[0x%x] algorithm[%d] key->keylen[%d]\n",
-                                                                            key->keyidx, key->flags, algorithm, key->keylen);
-                for(i = 0; i < key->keylen; i++)
-                {
-                    printk("[%02x]", key->key[i]);
-                }
-                printk("\n");
-                printk("===============================================================================\n");
-                #endif
                 switch (cipher)
                 {
                     case SSV_CIPHER_WEP40:
@@ -1885,11 +1635,9 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
                     case SSV_CIPHER_CCMP:
                         ret = _set_key_tkip_ccmp(sc, vif_priv, sta_priv, cipher, key);
                         break;
-                    #ifdef CONFIG_SSV_WAPI
                     case SSV_CIPHER_SMS4:
                         ret = _set_key_sms4(sc, vif_priv, sta_priv, cipher, key);
                         break;
-                    #endif
                     default:
                         break;
                 }
@@ -1943,23 +1691,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
                 int another_vif_idx = ((vif_priv->vif_idx + 1) % 2);
                 struct ssv_vif_priv_data *another_vif_priv =
                         (struct ssv_vif_priv_data *)sc->vif_info[another_vif_idx].vif_priv;
-#if 0
-               printk("================================DEL KEY=======================================\n");
-               if(sta_info == NULL){
-                    printk("NULL STA cmd[%d] alg[%d] keyidx[%d] ", cmd, cipher, key->keyidx);
-               }
-               else{
-                    printk("STA WSID[%d] cmd[%d] alg[%d] keyidx[%d] ", sta_info->hw_wsid, cmd, cipher, key->keyidx);
-               }
-                printk("DISABLE_KEY index[%d]\n",key->keyidx);
-                printk("==============================================================================\n");
-#endif
-                #if 0
-                if(key->keyidx == 0)
-                {
-                    sta_info->ampdu_ccmp_encrypt = false;
-                }
-                #endif
                 if (another_vif_priv != NULL) {
                     struct ssv_vif_info *vif_info = &sc->vif_info[vif_priv->vif_idx];
                     if (vif_info->if_type != NL80211_IFTYPE_AP) {
@@ -2026,15 +1757,12 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
                 {
                     if ((key->keyidx == 0) && (sta_priv != NULL))
                     {
-                        #ifdef USE_LOCAL_CRYPTO
                         unsigned long flags;
                         INIT_WRITE_CRYPTO_DATA(crypto_data, &sta_priv->crypto_data);
-                        #endif
                         sta_priv->has_hw_decrypt = false;
                         sta_priv->has_hw_encrypt = false;
                         sta_priv->need_sw_encrypt = false;
                         sta_priv->use_mac80211_decrypt = false;
-                        #ifdef USE_LOCAL_CRYPTO
                         if (crypto_data->ops && crypto_data->priv)
                         {
                             u32 sta_addr0_3 = *(u32 *)&sta->addr[0];
@@ -2051,9 +1779,7 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
                             spin_unlock_irqrestore(&sc->crypt_st_lock, flags);
                             dev_err(sc->dev, "Clean up %d skb for STA %pM.\n", removed_skb_num, sta->addr);
                         }
-                        #endif
                     }
-                    #ifdef USE_LOCAL_CRYPTO
                     else
                     {
                         INIT_WRITE_CRYPTO_DATA(crypto_data, &vif_priv->crypto_data);
@@ -2064,14 +1790,8 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
                         crypto_data->ops = NULL;
                         END_WRITE_CRYPTO_DATA(crypto_data);
                     }
-                    #endif
                     if ((vif_priv->is_security_valid) && (key->keyidx != 0))
                     {
-                        #if 0
-                        vif_priv->has_hw_decrypt = false;
-                        vif_priv->has_hw_encrypt = false;
-                        vif_priv->need_sw_encrypt = false;
-                        #endif
                         vif_priv->is_security_valid = false;
                     }
                 }
@@ -2097,15 +1817,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
     }
 #ifdef CONFIG_SSV_SW_ENCRYPT_HW_DECRYPT
     ret = -EOPNOTSUPP;
-#endif
-#ifndef USE_LOCAL_CRYPTO
-    if ( vif_priv->force_sw_encrypt
-        || (sta_info && (sta_info->hw_wsid != 1) && (sta_info->hw_wsid != 0)))
-    {
-        if (vif_priv->force_sw_encrypt == false)
-            vif_priv->force_sw_encrypt = true;
-        ret = -EOPNOTSUPP;
-    }
 #endif
     printk(KERN_ERR "SET KEY %d\n", ret);
     return ret;
@@ -2173,7 +1884,6 @@ void ssv6xxx_tx_cb(struct sk_buff_head *skb_head, void *args)
     wake_up_interruptible(&sc->rx_wait_q);
 }
 #endif
-#ifdef RATE_CONTROL_REALTIME_UPDATA
 void ssv6xxx_tx_rate_update(struct sk_buff *skb, void *args)
 {
     struct ieee80211_hdr *hdr;
@@ -2221,7 +1931,6 @@ void ssv6xxx_tx_rate_update(struct sk_buff *skb, void *args)
     }
     return;
 }
-#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
 #define RTS_CTS_PROTECT(_flg) \
     ((_flg)&IEEE80211_TX_RC_USE_RTS_CTS)? 1: \
@@ -2355,27 +2064,8 @@ void ssv6xxx_update_txinfo (struct ssv_softc *sc, struct sk_buff *skb)
                 {
                     tx_desc->wsid = hw_wsid;
                 }
-                #if 0
-                printk(KERN_ERR "HW ENC %d %02X:%02X:%02X:%02X:%02X:%02X\n",
-                       tx_desc->wsid,
-                       hdr->addr1[0], hdr->addr1[1], hdr->addr1[2],
-                       hdr->addr1[3], hdr->addr1[4], hdr->addr1[5]);
-                _ssv6xxx_hexdump("M ", (const u8 *)skb->data, (skb->len > 128) ? 128 : skb->len);
-                tx_desc->fCmd = (tx_desc->fCmd << 4) | M_ENG_CPU;
-                #endif
             }
             tx_desc->fCmd = (tx_desc->fCmd << 4) | M_ENG_ENCRYPT;
-            #if 0
-            if (dump_count++ < 10)
-            {
-                printk(KERN_ERR "HW ENC %d %02X:%02X:%02X:%02X:%02X:%02X\n",
-                       tx_desc->wsid,
-                       hdr->addr1[0], hdr->addr1[1], hdr->addr1[2],
-                       hdr->addr1[3], hdr->addr1[4], hdr->addr1[5]);
-                tx_desc->tx_report = 1;
-                _ssv6xxx_hexdump("M ", (const u8 *)skb->data, (skb->len > 128) ? 128 : skb->len);
-            }
-            #endif
         }
         else if (ssv_sta_priv->need_sw_encrypt)
         {
@@ -2388,39 +2078,6 @@ void ssv6xxx_update_txinfo (struct ssv_softc *sc, struct sk_buff *skb)
     {
     }
     tx_desc->fCmd = (tx_desc->fCmd << 4) | M_ENG_HWHCI;
-    #if 0
-    if ( ieee80211_is_data_qos(hdr->frame_control)
-        || ieee80211_is_data(hdr->frame_control))
-    #endif
-    #if 0
-    if (ieee80211_is_probe_resp(hdr->frame_control))
-    {
-        {
-            printk(KERN_ERR "Probe Resp %d %02X:%02X:%02X:%02X:%02X:%02X\n",
-                   tx_desc->wsid,
-                   hdr->addr1[0], hdr->addr1[1], hdr->addr1[2],
-                   hdr->addr1[3], hdr->addr1[4], hdr->addr1[5]);
-            _ssv6xxx_hexdump("M ", (const u8 *)skb->data, (skb->len > 128) ? 128 : skb->len);
-        }
-    }
-    #endif
-#if 0
-    if ( (sc->sh->cfg.hw_caps & SSV6200_HW_CAP_SECURITY)
-        && (sc->algorithm != ME_NONE)) {
-        if ( (tx_desc->unicast == 0)
-            || (sc->algorithm == ME_WEP104 || sc->algorithm == ME_WEP40))
-        {
-            tx_desc->wsid = 0;
-        }
-    }
-#endif
-#if 0
-    if (tx_desc->aggregation) {
-        tx_desc->do_rts_cts = 0;
-        tx_desc->fCmd = M_ENG_HWHCI|((hw_txqid+M_ENG_TX_EDCA0)<<4);
-        tx_desc->ack_policy = 0x01;
-    }
-#endif
     if (tx_desc->aggregation == 1)
     {
         struct ampdu_hdr_st *ampdu_hdr = (struct ampdu_hdr_st *)skb->head;
@@ -2476,25 +2133,21 @@ static void _ssv6xxx_tx (struct ieee80211_hw *hw, struct sk_buff *skb)
     struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
     struct ieee80211_vif *vif = info->control.vif;
     struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
-#ifdef USE_LOCAL_CRYPTO
     struct SKB_info_st *skb_info = (struct SKB_info_st *)skb->head;
     struct ieee80211_sta *sta = skb_info->sta;
     struct ssv_vif_priv_data *vif_priv = (struct ssv_vif_priv_data *)info->control.vif->drv_priv;
     struct ssv_sta_priv_data *ssv_sta_priv = sta
                                               ? (struct ssv_sta_priv_data *)sta->drv_priv
                                              : NULL;
-#endif
     struct ssv6200_tx_desc *tx_desc;
     int ret;
     unsigned long flags;
     bool send_hci=false;
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
     if(sc->ps_status == PWRSV_PREPARE)
     {
         if(ieee80211_is_data(hdr->frame_control))
             ssv_wake_timeout(sc, 1);
     }
-#endif
     do {
         if (info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ) {
             if (info->flags & IEEE80211_TX_CTL_FIRST_FRAGMENT)
@@ -2506,18 +2159,8 @@ static void _ssv6xxx_tx (struct ieee80211_hw *hw, struct sk_buff *skb)
             printk("================================================\n");
             _ssv6xxx_hexdump("TX frame", (const u8 *)skb->data, skb->len);
         }
-#if 0
-        if ( (skb->protocol == cpu_to_be16(ETH_P_PAE))
-            && ieee80211_is_data_qos(hdr->frame_control))
-        {
-           printk(KERN_ERR "EAPOL frame is %d\n", skb_get_queue_mapping(skb));
-        }
-#endif
-#ifdef USE_LOCAL_CRYPTO
         if (
-#ifdef MULTI_THREAD_ENCRYPT
             (skb_info->crypt_st == PKT_CRYPT_ST_NOT_SUPPORT) &&
-#endif
             ieee80211_has_protected(hdr->frame_control)
             && ( ieee80211_is_data_qos(hdr->frame_control)
                 || ieee80211_is_data(hdr->frame_control)))
@@ -2540,7 +2183,6 @@ static void _ssv6xxx_tx (struct ieee80211_hw *hw, struct sk_buff *skb)
         else
         {
         }
-#endif
         if (info->flags & IEEE80211_TX_CTL_AMPDU)
         {
             if(ssv6xxx_get_real_index(sc, skb) < SSV62XX_RATE_MCS_INDEX)
@@ -2548,14 +2190,6 @@ static void _ssv6xxx_tx (struct ieee80211_hw *hw, struct sk_buff *skb)
                 info->flags &= (~IEEE80211_TX_CTL_AMPDU);
                 goto tx_mpdu;
             }
-            #if 0
-            u8 tidno;
-            struct ieee80211_sta *sta = info->control.sta;
-            struct ssv_sta_priv_data *ssv_sta_priv = (struct ssv_sta_priv_data *)sta->drv_priv;
-            tidno = ieee80211_get_qos_ctl(hdr)[0] & IEEE80211_QOS_CTL_TID_MASK;
-            if((ssv_sta_priv->ampdu_tid[tidno].state == AMPDU_STATE_OPERATION) &&
-               (sc->ampdu_rekey_pause < AMPDU_REKEY_PAUSE_ONGOING))
-            #endif
             if (ssv6200_ampdu_tx_handler(hw, skb))
             {
                 break;
@@ -2597,12 +2231,9 @@ tx_mpdu:
         ret = HCI_SEND(sc->sh, skb, tx_desc->txq_idx);
         send_hci = true;
     } while (0);
-#ifdef ENABLE_TX_Q_FLOW_CONTROL
     if ( (skb_queue_len(&sc->tx_skb_q) < LOW_TX_Q_LEN)
-        #ifdef MULTI_THREAD_ENCRYPT
         && (skb_queue_len(&sc->preprocess_q) < LOW_CRYPTO_Q_LEN)
         && (skb_queue_len(&sc->crypted_q) < LOW_CRYPTO_Q_LEN)
-        #endif
        )
     {
        if (sc->tx.flow_ctrl_status != 0)
@@ -2618,7 +2249,6 @@ tx_mpdu:
            ieee80211_wake_queues(sc->hw);
        }
     }
-#endif
     if(sc->dbg_tx_frame){
         if(send_hci)
             printk("Tx frame send to HCI\n");
@@ -2627,7 +2257,6 @@ tx_mpdu:
         printk("================================================\n");
     }
 }
-#ifdef MULTI_THREAD_ENCRYPT
 bool _is_encrypt_needed(struct sk_buff *skb)
 {
     struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -2644,9 +2273,7 @@ bool _is_encrypt_needed(struct sk_buff *skb)
     {
         if ( vif_priv->is_security_valid
             && vif_priv->need_sw_encrypt
-            #ifdef USE_LOCAL_CRYPTO
             && (vif_priv->crypto_data.ops != NULL)
-            #endif
            )
         {
             return true;
@@ -2655,15 +2282,12 @@ bool _is_encrypt_needed(struct sk_buff *skb)
     else if (ssv_sta_priv != NULL)
     {
         if ( ssv_sta_priv->need_sw_encrypt
-            #ifdef USE_LOCAL_CRYPTO
             && (ssv_sta_priv->crypto_data.ops != NULL)
-            #endif
            )
             return true;
     }
     return false;
 }
-#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
 static int ssv6200_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
@@ -2674,11 +2298,9 @@ static void ssv6200_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *con
 {
     struct ssv_softc *sc = (struct ssv_softc *)hw->priv;
     struct SKB_info_st *skb_info = (struct SKB_info_st *)skb->head;
-#ifdef MULTI_THREAD_ENCRYPT
     struct ssv_encrypt_task_list *ta = NULL;
     unsigned long flags;
     int ret = -EOPNOTSUPP;
-#endif
     #if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
     struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
     skb_info->sta = info->control.sta;
@@ -2688,17 +2310,6 @@ static void ssv6200_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *con
 #ifdef CONFIG_DEBUG_SKB_TIMESTAMP
  skb_info->timestamp = ktime_get();
 #endif
-#if 0
-    _ssv6xxx_tx(hw, skb);
-#else
-    #ifndef MULTI_THREAD_ENCRYPT
-    skb_queue_tail(&sc->tx_skb_q, skb);
-    #ifdef CONFIG_SSV6XXX_DEBUGFS
-    if (sc->max_tx_skb_q_len < skb_queue_len(&sc->tx_skb_q))
-        sc->max_tx_skb_q_len = skb_queue_len(&sc->tx_skb_q);
-    #endif
-    wake_up_interruptible(&sc->tx_wait_q);
-    #else
     skb_info->crypt_st = PKT_CRYPT_ST_ENC_DONE;
     if(_is_encrypt_needed(skb))
     {
@@ -2709,10 +2320,8 @@ static void ssv6200_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *con
     {
         spin_lock_irqsave(&sc->crypt_st_lock, flags);
         __skb_queue_tail(&sc->preprocess_q, skb);
-        #ifdef CONFIG_SSV6XXX_DEBUGFS
         if (sc->max_preprocess_q_len < skb_queue_len(&sc->preprocess_q))
             sc->max_preprocess_q_len = skb_queue_len(&sc->preprocess_q);
-        #endif
         spin_unlock_irqrestore(&sc->crypt_st_lock, flags);
         list_for_each_entry(ta, &sc->encrypt_task_head, list)
         {
@@ -2727,37 +2336,28 @@ static void ssv6200_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *con
     {
         skb_info->crypt_st = PKT_CRYPT_ST_NOT_SUPPORT;
         skb_queue_tail(&sc->tx_skb_q, skb);
-        #ifdef CONFIG_SSV6XXX_DEBUGFS
         if (sc->max_tx_skb_q_len < skb_queue_len(&sc->tx_skb_q))
             sc->max_tx_skb_q_len = skb_queue_len(&sc->tx_skb_q);
-        #endif
         wake_up_interruptible(&sc->tx_wait_q);
     }
     else
     {
         dev_err(sc->dev, "strange fail to pre-encrypt packet/n");
     }
-    #endif
-#endif
-#ifdef ENABLE_TX_Q_FLOW_CONTROL
     do {
-#ifdef MULTI_THREAD_ENCRYPT
         if ( (skb_queue_len(&sc->preprocess_q) >= MAX_CRYPTO_Q_LEN)
             || (skb_queue_len(&sc->crypted_q) >= MAX_CRYPTO_Q_LEN))
         {
             ieee80211_stop_queues(sc->hw);
             break;
         }
-#endif
         if (skb_queue_len(&sc->tx_skb_q) >= MAX_TX_Q_LEN)
             ieee80211_stop_queues(sc->hw);
     } while (0);
-#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
     return NETDEV_TX_OK;
 #endif
 }
-#ifdef MULTI_THREAD_ENCRYPT
 int ssv6xxx_encrypt_task (void *data)
 {
     struct ssv_softc *sc = (struct ssv_softc *)data;
@@ -2810,10 +2410,8 @@ int ssv6xxx_encrypt_task (void *data)
         {
             SKB_info * skb_info = (SKB_info *)skb->head;
             __skb_queue_tail(&sc->crypted_q, skb);
-            #ifdef CONFIG_SSV6XXX_DEBUGFS
             if (sc->max_crypted_q_len < skb_queue_len(&sc->crypted_q))
                 sc->max_crypted_q_len = skb_queue_len(&sc->crypted_q);
-            #endif
             spin_unlock_irqrestore(&sc->crypt_st_lock, flags);
             if(skb_info->crypt_st == PKT_CRYPT_ST_ENC_PRE)
             {
@@ -2902,10 +2500,8 @@ int ssv6xxx_encrypt_task (void *data)
             {
                 __skb_unlink(skb, &sc->crypted_q);
                 skb_queue_tail(&sc->tx_skb_q, skb);
-                #ifdef CONFIG_SSV6XXX_DEBUGFS
                 if (sc->max_tx_skb_q_len < skb_queue_len(&sc->tx_skb_q))
                     sc->max_tx_skb_q_len = skb_queue_len(&sc->tx_skb_q);
-                #endif
                 wakeup_tx = true;
                 skb = NULL;
             }
@@ -3006,7 +2602,6 @@ void _clean_up_crypto_skb (struct ssv_softc *sc, struct ieee80211_sta *sta)
     spin_unlock_irqrestore(&sc->crypt_st_lock, flags);
     _resume_crypto_task(sc);
 }
-#endif
 int ssv6xxx_tx_task (void *data)
 {
     struct ssv_softc *sc = (struct ssv_softc *)data;
@@ -3112,7 +2707,6 @@ int ssv6xxx_rx_task (void *data)
     }
     return 0;
 }
-#ifdef CONFIG_SSV_CABRIO_E
 struct ssv6xxx_iqk_cfg init_iqk_cfg = {
     SSV6XXX_IQK_CFG_XTAL_26M,
 #ifdef CONFIG_SSV_DPD
@@ -3140,7 +2734,6 @@ struct ssv6xxx_iqk_cfg init_iqk_cfg = {
 #endif
     },
 };
-#endif
 static int ssv6200_start(struct ieee80211_hw *hw)
 {
     struct ssv_softc *sc=hw->priv;
@@ -3162,15 +2755,12 @@ static int ssv6200_start(struct ieee80211_hw *hw)
     sc->watchdog_flag = WD_KICKED;
     mutex_unlock(&sc->mutex);
     mod_timer(&sc->watchdog_timeout, jiffies + WATCHDOG_TIMEOUT);
-#if (defined(CONFIG_SSV_SUPPORT_ANDROID)||defined(CONFIG_SSV_BUILD_AS_ONE_KO))
 #ifdef CONFIG_SSV_SMARTLINK
         {
             extern int ksmartlink_init(void);
             (void)ksmartlink_init();
         }
 #endif
-#endif
-#ifdef CONFIG_SSV_CABRIO_E
     {
          int ret = ssv6xxx_do_iq_calib(sc->sh, &init_iqk_cfg);
          if (ret != 0) {
@@ -3190,7 +2780,6 @@ static int ssv6200_start(struct ieee80211_hw *hw)
             SMAC_REG_READ(sh, sh->p_ch_cfg[i].reg_addr, &sh->p_ch_cfg[i].ch1_12_value);
         }
     }
-#endif
     #if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
     chan = hw->conf.channel;
     #else
@@ -3206,17 +2795,13 @@ static void ssv6200_stop(struct ieee80211_hw *hw)
 {
     struct ssv_softc *sc=hw->priv;
     u32 count=0;
-#ifdef CONFIG_SSV_RSSI
         struct rssi_res_st *rssi_tmp0, *rssi_tmp1;
-#endif
     printk(KERN_INFO "%s(): sc->ps_status=%d\n", __FUNCTION__,sc->ps_status);
     mutex_lock(&sc->mutex);
-#ifdef CONFIG_SSV_RSSI
     list_for_each_entry_safe(rssi_tmp0, rssi_tmp1, &rssi_res.rssi_list, rssi_list) {
         list_del(&rssi_tmp0->rssi_list);
         kfree(rssi_tmp0);
     }
-#endif
     ssv6200_ampdu_deinit(hw);
     ssv6xxx_rf_disable(sc->sh);
     HCI_STOP(sc->sh);
@@ -3234,9 +2819,6 @@ static void ssv6200_stop(struct ieee80211_hw *hw)
     }
     HCI_TXQ_FLUSH(sc->sh, (TXQ_EDCA_0|TXQ_EDCA_1|TXQ_EDCA_2|
         TXQ_EDCA_3|TXQ_MGMT));
-#if 0
-    cancel_work_sync(&sc->rx_work);
-#endif
     if((sc->ps_status == PWRSV_PREPARE)||(sc->ps_status == PWRSV_ENABLE)){
            ssv6xxx_enable_ps(sc);
            ssv6xxx_rf_enable(sc->sh);
@@ -3244,13 +2826,11 @@ static void ssv6200_stop(struct ieee80211_hw *hw)
     sc->watchdog_flag = WD_SLEEP;
     mutex_unlock(&sc->mutex);
     del_timer_sync(&sc->watchdog_timeout);
-#if (defined(CONFIG_SSV_SUPPORT_ANDROID)||defined(CONFIG_SSV_BUILD_AS_ONE_KO))
 #ifdef CONFIG_SSV_SMARTLINK
         {
             extern void ksmartlink_exit(void);
             ksmartlink_exit();
         }
-#endif
 #endif
     printk("%s(): leave\n", __FUNCTION__);
 }
@@ -3289,13 +2869,9 @@ struct ssv_vif_priv_data * ssv6xxx_config_vif_res(struct ssv_softc *sc,
     priv_vif->use_mac80211_decrypt = false;
     priv_vif->is_security_valid = false;
     priv_vif->force_sw_encrypt = (vif->type == NL80211_IFTYPE_AP);
-    #ifdef USE_LOCAL_CRYPTO
     priv_vif->crypto_data.ops = NULL;
     priv_vif->crypto_data.priv = NULL;
-    #ifdef HAS_CRYPTO_LOCK
     rwlock_init(&priv_vif->crypto_data.lock);
-    #endif
-    #endif
     vif_info = &sc->vif_info[priv_vif->vif_idx];
     vif_info->if_type = vif->type;
     vif_info->vif = vif;
@@ -3337,7 +2913,6 @@ static int ssv6200_add_interface(struct ieee80211_hw *hw,
                               MTX_HALT_MNG_UNTIL_DTIM_MSK);
             sc->bq4_dtim = true;
         }
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
         if(vif->p2p == 0)
         {
             printk(KERN_INFO "AP mode init wifi_alive_lock\n");
@@ -3345,15 +2920,12 @@ static int ssv6200_add_interface(struct ieee80211_hw *hw,
 			SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_CONTROL, 0x00160200);
 			SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_1, 0x20380050);
         }
-#endif
     }
     sc->nvif++;
     dev_err(sc->dev, "VIF %02x:%02x:%02x:%02x:%02x:%02x of type %d is added.\n",
              vif->addr[0], vif->addr[1], vif->addr[2],
              vif->addr[3], vif->addr[4], vif->addr[5], vif->type);
-#ifdef CONFIG_SSV6XXX_DEBUGFS
     ssv6xxx_debugfs_add_interface(sc, vif);
-#endif
     mutex_unlock(&sc->mutex);
     return ret;
 }
@@ -3362,15 +2934,12 @@ static void ssv6200_remove_interface(struct ieee80211_hw *hw,
 {
     struct ssv_softc *sc = hw->priv;
     struct ssv_vif_priv_data *vif_priv = (struct ssv_vif_priv_data *)vif->drv_priv;
-    #ifdef USE_LOCAL_CRYPTO
     INIT_WRITE_CRYPTO_DATA(crypto_data, &vif_priv->crypto_data);
-    #endif
     dev_err(sc->dev,
              "Removing interface %02x:%02x:%02x:%02x:%02x:%02x. PS=%d\n",
              vif->addr[0], vif->addr[1], vif->addr[2],
              vif->addr[3], vif->addr[4], vif->addr[5], sc->ps_status);
     mutex_lock(&sc->mutex);
-    #ifdef USE_LOCAL_CRYPTO
     START_WRITE_CRYPTO_DATA(crypto_data);
     if (crypto_data->ops && crypto_data->priv)
     {
@@ -3379,10 +2948,7 @@ static void ssv6200_remove_interface(struct ieee80211_hw *hw,
     crypto_data->ops = NULL;
     crypto_data->priv = NULL;
     END_WRITE_CRYPTO_DATA(crypto_data);
-    #endif
-    #ifdef CONFIG_SSV6XXX_DEBUGFS
     ssv6xxx_debugfs_remove_interface(sc, vif);
-    #endif
     if (vif->type == NL80211_IFTYPE_AP)
     {
         if (sc->bq4_dtim)
@@ -3395,7 +2961,6 @@ static void ssv6200_remove_interface(struct ieee80211_hw *hw,
         }
         ssv6xxx_beacon_release(sc);
         sc->ap_vif = NULL;
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
         if(vif->p2p == 0)
         {
             ssv_wake_unlock(sc);
@@ -3403,7 +2968,6 @@ static void ssv6200_remove_interface(struct ieee80211_hw *hw,
             SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_1, 0x20300050);
             printk(KERN_INFO "AP mode destroy wifi_alive_lock\n");
         }
-#endif
     }
     memset(&sc->vif_info[vif_priv->vif_idx], 0, sizeof(struct ssv_vif_info));
     sc->nvif--;
@@ -3579,34 +3143,6 @@ out:
     mutex_unlock(&sc->mutex);
     return ret;
 }
-#if 0
-static int sv6200_conf_tx(struct ieee80211_hw *hw,
-                             struct ieee80211_vif *vif, u16 queue,
-                             const struct ieee80211_tx_queue_params *params)
-{
-    struct ssv_softc *sc = hw->priv;
-    u32 cw;
-    u8 hw_txqid = sc->tx.hw_txqid[queue];
-    printk("[I] sv6200_conf_tx qos[%d] queue[%d] aifsn[%d] cwmin[%d] cwmax[%d] txop[%d] \n",
-    vif->bss_conf.qos, queue, params->aifs, params->cw_min, params->cw_max, params->txop);
-    if (queue > NL80211_TXQ_Q_BK)
-        return 1;
-    mutex_lock(&sc->mutex);
-    #define QOS_EN_MSK 0x00000010
-    #define QOS_EN_I_MSK 0xffffffef
-    #define QOS_EN_SFT 4
-    #define QOS_EN_HI 4
-    #define QOS_EN_SZ 1
-    SMAC_REG_SET_BITS(sc->sh, ADR_GLBLE_SET, (vif->bss_conf.qos<<QOS_EN_SFT), QOS_EN_MSK);
-    cw = params->aifs&0xf;
-    cw|= ((ilog2(params->cw_min+1))&0xf)<<8;
-    cw|= ((ilog2(params->cw_max+1))&0xf)<<12;
-    cw|= ((params->txop)&0xff)<<16;
-    SMAC_REG_WRITE(sc->sh, ADR_TXQ0_MTX_Q_AIFSN+0x100*hw_txqid, cw);
-    mutex_unlock(&sc->mutex);
-    return 0;
-}
-#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
 #define SUPPORTED_FILTERS \
     (FIF_PROMISC_IN_BSS | \
@@ -3682,10 +3218,8 @@ static void ssv6200_bss_info_changed(struct ieee80211_hw *hw,
                 regval |= 9 << MTX_DUR_SLOT_SFT;
                 SMAC_REG_WRITE(sc->sh, ADR_MTX_DUR_IFS, regval);
                 SMAC_REG_READ(sc->sh, ADR_MTX_DUR_SIFS_G, &regval);
-#if 1
                 regval = regval & MTX_DUR_BURST_SIFS_G_I_MSK;
                 regval |= 0xa << MTX_DUR_BURST_SIFS_G_SFT;
-#endif
                 regval = regval & MTX_DUR_SLOT_G_I_MSK;
                 regval |= 9 << MTX_DUR_SLOT_G_SFT;
                 SMAC_REG_WRITE(sc->sh, ADR_MTX_DUR_SIFS_G, regval);
@@ -3697,10 +3231,8 @@ static void ssv6200_bss_info_changed(struct ieee80211_hw *hw,
                 regval |= 20 << MTX_DUR_SLOT_SFT;
                 SMAC_REG_WRITE(sc->sh, ADR_MTX_DUR_IFS, regval);
                 SMAC_REG_READ(sc->sh, ADR_MTX_DUR_SIFS_G, &regval);
-#if 1
                 regval = regval & MTX_DUR_BURST_SIFS_G_I_MSK;
                 regval |= 0xa << MTX_DUR_BURST_SIFS_G_SFT;
-#endif
                 regval = regval & MTX_DUR_SLOT_G_I_MSK;
                 regval |= 20 << MTX_DUR_SLOT_G_SFT;
                 SMAC_REG_WRITE(sc->sh, ADR_MTX_DUR_SIFS_G, regval);
@@ -3803,9 +3335,7 @@ static int ssv6200_sta_add(struct ieee80211_hw *hw,
     unsigned long flags;
     int ret = 0;
     struct ssv_vif_priv_data *vif_priv = (struct ssv_vif_priv_data *)vif->drv_priv;
-#ifdef FW_WSID_WATCH_LIST
     int fw_sec_caps = SSV6XXX_WSID_SEC_NONE;
-#endif
     bool tdls_use_sw_cipher = false, tdls_link= false;
  printk("[I] %s(): vif[%d] ", __FUNCTION__, vif_priv->vif_idx);
     if (sc->force_triger_reset == true)
@@ -3845,14 +3375,11 @@ static int ssv6200_sta_add(struct ieee80211_hw *hw,
             && (sc->sh->cfg.use_wpa2_only == false)){
             tdls_use_sw_cipher = true;
         }
-        #if 1
         if (((vif_priv->vif_idx == 0) && (tdls_use_sw_cipher == false))
             || sc->sh->cfg.use_wpa2_only)
             s = 0;
         else
             s = 2;
-        #else
-        #endif
         for (; s < SSV_NUM_STA; s++)
         {
             sta_info = &sc->sta_info[s];
@@ -3871,23 +3398,17 @@ static int ssv6200_sta_add(struct ieee80211_hw *hw,
                 sta_priv_dat->need_sw_decrypt = false;
                 sta_priv_dat->need_sw_encrypt = false;
                 sta_priv_dat->use_mac80211_decrypt = false;
-                #ifdef USE_LOCAL_CRYPTO
                 sta_priv_dat->crypto_data.ops = NULL;
                 sta_priv_dat->crypto_data.priv = NULL;
-                #ifdef HAS_CRYPTO_LOCK
                 rwlock_init(&sta_priv_dat->crypto_data.lock);
-                #endif
-                #endif
                 if ( (vif_priv->pair_cipher == SSV_CIPHER_WEP40)
                     || (vif_priv->pair_cipher == SSV_CIPHER_WEP104))
                 {
-                    #ifdef USE_LOCAL_CRYPTO
                     if (vif_priv->crypto_data.ops != NULL)
                     {
                         sta_priv_dat->crypto_data.ops = vif_priv->crypto_data.ops;
                         sta_priv_dat->crypto_data.priv = vif_priv->crypto_data.priv;
                     }
-                    #endif
                     sta_priv_dat->has_hw_encrypt = vif_priv->has_hw_encrypt;
                     sta_priv_dat->has_hw_decrypt = vif_priv->has_hw_decrypt;
                     sta_priv_dat->need_sw_encrypt = vif_priv->need_sw_encrypt;
@@ -3904,17 +3425,10 @@ static int ssv6200_sta_add(struct ieee80211_hw *hw,
             ret = -1;
             break;
         }
-        #ifdef CONFIG_SSV6XXX_DEBUGFS
         ssv6xxx_debugfs_add_sta(sc, sta_info);
-        #endif
         sta_info->hw_wsid = -1;
         if (sta_priv_dat->sta_idx < SSV_NUM_HW_STA)
         {
-            #if 0
-            SMAC_REG_READ(sc->sh, reg_wsid[s], &reg_val);
-            if ((reg_val & 0x01) == 0)
-            {
-            #endif
             SMAC_REG_WRITE(sc->sh, reg_wsid[s]+4, *((u32 *)&sta->addr[0]));
             SMAC_REG_WRITE(sc->sh, reg_wsid[s]+8, *((u32 *)&sta->addr[4]));
             SMAC_REG_WRITE(sc->sh, reg_wsid[s], 1);
@@ -3923,15 +3437,12 @@ static int ssv6200_sta_add(struct ieee80211_hw *hw,
             ssv6xxx_rc_hw_reset(sc, sta_priv_dat->rc_idx, s);
             sta_info->hw_wsid = sta_priv_dat->sta_idx;
         }
-        #ifdef FW_WSID_WATCH_LIST
         else if ( (vif_priv->vif_idx == 0)
                  || sc->sh->cfg.use_wpa2_only
                 )
         {
             sta_info->hw_wsid = sta_priv_dat->sta_idx;
         }
-        #endif
-#ifdef SSV6200_ECO
         if ((sta_priv_dat->has_hw_encrypt || sta_priv_dat->has_hw_decrypt) &&
             ((vif_priv->pair_cipher == SSV_CIPHER_WEP40) || (vif_priv->pair_cipher == SSV_CIPHER_WEP104)))
         {
@@ -3943,9 +3454,7 @@ static int ssv6200_sta_add(struct ieee80211_hw *hw,
                 _set_wep_hw_crypto_group_key(sc, vif_info, sta_info, (void*)sramKey);
             }
         }
-#endif
         ssv6200_ampdu_tx_add_sta(hw, sta);
-        #ifdef FW_WSID_WATCH_LIST
         if (sta_info->hw_wsid >= SSV_NUM_HW_STA)
         {
             if (sta_priv_dat->has_hw_decrypt)
@@ -3960,7 +3469,6 @@ static int ssv6200_sta_add(struct ieee80211_hw *hw,
               hw_update_watch_wsid(sc, sta, sta_info, sta_priv_dat->sta_idx,
                 SSV6XXX_WSID_SEC_SW, SSV6XXX_WSID_OPS_HWWSID_GROUP_SET_TYPE);
         }
-        #endif
         printk("Add %02x:%02x:%02x:%02x:%02x:%02x to VIF %d sw_idx=%d, wsid=%d\n",
                sta->addr[0], sta->addr[1], sta->addr[2],
                sta->addr[3], sta->addr[4], sta->addr[5],
@@ -4002,9 +3510,7 @@ static int ssv6200_sta_remove(struct ieee80211_hw *hw,
     u32 bit;
     struct ssv_vif_priv_data *priv_vif = (struct ssv_vif_priv_data *)vif->drv_priv;
     u8 hw_wsid = -1;
-    #ifdef USE_LOCAL_CRYPTO
     INIT_WRITE_CRYPTO_DATA(crypto_data, &sta_priv_dat->crypto_data);
-    #endif
     BUG_ON(sta_priv_dat->sta_idx >= SSV_NUM_STA);
     dev_notice(sc->dev,
                "Removing STA %d (%02X:%02X:%02X:%02X:%02X:%02X) from VIF %d\n.",
@@ -4012,9 +3518,6 @@ static int ssv6200_sta_remove(struct ieee80211_hw *hw,
                sta->addr[3], sta->addr[4], sta->addr[5], priv_vif->vif_idx);
     ssv6200_rx_flow_check(sta_priv_dat, sc);
     spin_lock_irqsave(&sc->ps_state_lock, flags);
-    #ifdef CONFIG_SSV6XXX_DEBUGFS
-    #endif
-    #ifdef USE_LOCAL_CRYPTO
     START_WRITE_CRYPTO_DATA(crypto_data);
     if (crypto_data->ops)
     {
@@ -4028,47 +3531,21 @@ static int ssv6200_sta_remove(struct ieee80211_hw *hw,
         crypto_data->ops = NULL;
     }
     END_WRITE_CRYPTO_DATA(crypto_data);
-    #ifdef MULTI_THREAD_ENCRYPT
     _clean_up_crypto_skb(sc, sta);
-    #endif
-    #endif
-#if 0
-    if ((sc->ps_status == PWRSV_PREPARE)||(sc->ps_status == PWRSV_ENABLE)) {
-        memset(sta_info, 0, sizeof(*sta_info));
-        sta_priv_dat->sta_idx = -1;
-        list_del(&sta_priv_dat->list);
-        spin_unlock_irqrestore(&sc->ps_state_lock, flags);
-        return 0;
-    }
-#endif
     bit = BIT(sta_priv_dat->sta_idx);
     priv_vif->sta_asleep_mask &= ~bit;
     if (sta_info->hw_wsid != -1) {
-#ifndef FW_WSID_WATCH_LIST
-        BUG_ON(sta_info->hw_wsid >= SSV_NUM_HW_STA);
-#endif
         hw_wsid = sta_info->hw_wsid;
     }
-#ifdef FW_WSID_WATCH_LIST
     if (sta_info->hw_wsid >= SSV_NUM_HW_STA)
     {
         spin_unlock_irqrestore(&sc->ps_state_lock, flags);
         hw_update_watch_wsid(sc, sta, sta_info, sta_info->hw_wsid, 0, SSV6XXX_WSID_OPS_DEL);
         spin_lock_irqsave(&sc->ps_state_lock, flags);
     }
-#endif
-#if 0
-    printk("%s(): sw_idx=%d, hw_idx=%d sta_asleep_mask[%08x]\n", __FUNCTION__,
-        sta_priv_dat->sta_idx , sta_info->hw_wsid, sc->sta_asleep_mask);
-    printk("Remove %02x:%02x:%02x:%02x:%02x:%02x to sw_idx=%d, wsid=%d\n",
-    sta->addr[0], sta->addr[1], sta->addr[2],
-    sta->addr[3], sta->addr[4], sta->addr[5], sta_priv_dat->sta_idx, sta_info->hw_wsid);
-#endif
-    #ifdef CONFIG_SSV6XXX_DEBUGFS
     {
     ssv6xxx_debugfs_remove_sta(sc, sta_info);
     }
-    #endif
     memset(sta_info, 0, sizeof(*sta_info));
     sta_priv_dat->sta_idx = -1;
     list_del(&sta_priv_dat->list);
@@ -4078,21 +3555,7 @@ static int ssv6200_sta_remove(struct ieee80211_hw *hw,
         priv_vif->group_cipher = 0;
     }
     spin_unlock_irqrestore(&sc->ps_state_lock, flags);
-#if 0
-    sta_info = sc->sta_info;
-    for(s=0; s<SSV_NUM_STA; s++, sta_info++) {
-        if (sta_info->s_flags & STA_FLAG_VALID)
-            continue;
-        if (sta_info->sta == sta &&
-            sta_info->vif == vif)
-    sta_info->s_flags = 0;
-    }
-#endif
-#ifndef FW_WSID_WATCH_LIST
-    if(hw_wsid != -1)
-#else
     if((hw_wsid != -1) && (hw_wsid < SSV_NUM_HW_STA))
-#endif
         SMAC_REG_WRITE(sc->sh, reg_wsid[hw_wsid], 0x00);
     return 0;
 }
@@ -4266,19 +3729,7 @@ static int ssv6200_conf_tx(struct ieee80211_hw *hw,
     SMAC_REG_SET_BITS(sc->sh, ADR_GLBLE_SET,
             (vif->bss_conf.qos<<QOS_EN_SFT), QOS_EN_MSK);
 #endif
-#if 0
-    {
-        cw = 0x4;
-        SMAC_REG_WRITE(sc->sh, ADR_TXQ0_MTX_Q_MISC_EN+0x100*hw_txqid, cw);
-        cw = 0x0;
-        SMAC_REG_WRITE(sc->sh, ADR_TXQ0_MTX_Q_BKF_CNT+0x100*hw_txqid, cw);
-    }
-#endif
-#if 1
     cw = (params->aifs-1)&0xf;
-#else
-    cw = params->aifs&0xf;
-#endif
     cw|= ((ilog2(params->cw_min+1))&0xf)<<TXQ1_MTX_Q_ECWMIN_SFT;
     cw|= ((ilog2(params->cw_max+1))&0xf)<<TXQ1_MTX_Q_ECWMAX_SFT;
     cw|= ((params->txop)&0xff)<<TXQ1_MTX_Q_TXOP_LIMIT_SFT;
@@ -4471,8 +3922,6 @@ struct ieee80211_ops ssv6200_ops =
     .resume = ssv6xxx_resume,
 #endif
 };
-#ifdef USE_LOCAL_CRYPTO
-#ifdef MULTI_THREAD_ENCRYPT
 struct ssv_crypto_data * ssv6xxx_skb_get_tx_cryptops(struct sk_buff *mpdu)
 {
     struct ieee80211_tx_info *info = IEEE80211_SKB_CB(mpdu);
@@ -4549,42 +3998,15 @@ int ssv6xxx_skb_pre_decrypt(struct sk_buff *mpdu, struct ieee80211_sta *sta, str
     END_READ_CRYPTO_DATA(crypto_data);
     return ret;
 }
-#endif
 int ssv6xxx_skb_encrypt(struct sk_buff *mpdu, struct ssv_softc *sc)
 {
     struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)mpdu->data;
  int ret = 0;
-#ifndef MULTI_THREAD_ENCRYPT
-    struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(mpdu);
-    struct SKB_info_st *skb_info = (struct SKB_info_st *)mpdu->head;
-    struct ieee80211_sta *sta = skb_info->sta;
-    struct ssv_sta_priv_data *sta_priv_dat = NULL;
-#endif
     struct ssv_crypto_data *crypto_data = NULL;
-#ifndef MULTI_THREAD_ENCRYPT
-    if (sta || unicast)
-    {
-        sta_priv_dat = (struct ssv_sta_priv_data *)sta->drv_priv;
-        crypto_data = &sta_priv_data->crypto_data;
-    }
-    else
-    {
-        struct ssv_vif_priv_data *vif_priv = (struct ssv_vif_priv_data *)tx_info->control.vif->drv_priv;
-        crypto_data = &vif_priv->crypto_data;
-    }
-#else
     crypto_data = ssv6xxx_skb_get_tx_cryptops(mpdu);
-#endif
     START_READ_CRYPTO_DATA(crypto_data);
     if ((crypto_data == NULL) || (crypto_data->ops == NULL) || (crypto_data->priv == NULL))
     {
-        #if 0
-        u32 unicast = (is_multicast_ether_addr(hdr->addr1))? 0: 1;
-        dev_err(sc->dev, "[Local Crypto]: Encrypt %c %d %02X:%02X:%02X:%02X:%02X:%02X with NULL crypto.\n",
-                unicast ? 'U' : 'B', mpdu->protocol,
-                hdr->addr1[0], hdr->addr1[1], hdr->addr1[2],
-                hdr->addr1[3], hdr->addr1[4], hdr->addr1[5]);
-        #endif
         ret = -1;
     }
     else
@@ -4651,7 +4073,6 @@ int ssv6xxx_skb_decrypt(struct sk_buff *mpdu, struct ieee80211_sta *sta, struct 
  printk("[Local Crypto]: crytp is null\n");
     return -1;
 }
-#endif
 int ssv6200_tx_flow_control(void *dev, int hw_txqid, bool fc_en,int debug)
 {
     struct ssv_softc *sc=dev;
@@ -4767,9 +4188,7 @@ void mitigate_cci(struct ssv_softc *sc, u32 input_level)
 }
 #define RSSI_SMOOTHING_SHIFT 5
 #define RSSI_DECIMAL_POINT_SHIFT 6
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
 extern void ssv6xxx_send_deauth_toself(struct ssv_softc *sc,const u8 *bssid,const u8 *self_addr);
-#endif
 static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
 {
     struct ieee80211_rx_status *rxs;
@@ -4786,23 +4205,15 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
     struct ssv_sta_priv_data *sta_priv = NULL;
     struct ssv_vif_priv_data *vif_priv = NULL;
     SKB_info *skb_info = NULL;
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
  const u8 *p = NULL;
  struct ieee80211_mgmt *mgmt = NULL;
  static u8 diff_channel_cnt = 0;
-#endif
  u8 is_beacon;
  u8 is_probe_resp;
-#ifdef CONFIG_SSV_RSSI
     s32 found = 0;
-#endif
-#ifdef USE_LOCAL_CRYPTO
     int ret = 0;
-#ifdef MULTI_THREAD_ENCRYPT
     struct ssv_encrypt_task_list *ta = NULL;
     unsigned long flags;
-#endif
-#endif
 #ifdef CONFIG_SSV_SMARTLINK
     {
         extern int ksmartlink_smartlink_started(void);
@@ -4873,7 +4284,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
                                        hdr->addr2[0], hdr->addr2[1],hdr->addr2[2], hdr->addr2[3],
                                        hdr->addr2[4], hdr->addr2[5],rxphypad->rpci, rxphypad->snr);
 #endif
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
                 if(is_beacon)
                 {
                     mgmt = (struct ieee80211_mgmt *)(rx_skb->data + SSV6XXX_RX_DESC_LEN);
@@ -4903,7 +4313,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
                         diff_channel_cnt = 0;
                     }
                 }
-#endif
                 if(sta_priv->beacon_rssi)
                 {
                     sta_priv->beacon_rssi = ((rxphypad->rpci << RSSI_DECIMAL_POINT_SHIFT)
@@ -4917,7 +4326,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
 #endif
                 mitigate_cci(sc, rxphypad->rpci);
             }
-#ifdef CONFIG_SSV_RSSI
             else {
                 mutex_lock(&sc->mutex);
                 list_for_each_entry(p_rssi_res, &rssi_res.rssi_list, rssi_list) {
@@ -4950,14 +4358,8 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
                 }
                 mutex_unlock(&sc->mutex);
             }
-#endif
             if(rxphypad->rpci > 88)
                 rxphypad->rpci = 88;
-#if 0
-            printk("beacon %02X:%02X:%02X:%02X:%02X:%02X rxphypad-rpci=%d RxResult=%x wsid=%x\n",
-                   hdr->addr2[0], hdr->addr2[1], hdr->addr2[2],
-                   hdr->addr2[3], hdr->addr2[4], hdr->addr2[5], rxphypad->rpci, rxdesc->RxResult, rxdesc->wsid);
-#endif
         }
         if(sc->sh->cfg.rssi_ctl){
             rxs->signal = (-rxphypad->rpci) + sc->sh->cfg.rssi_ctl;
@@ -4993,11 +4395,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
             }
             if(rxphy->rpci > 88)
                 rxphy->rpci = 88;
-#if 0
-            printk("beacon %02X:%02X:%02X:%02X:%02X:%02X rxphy-rpci=%d RxResult=%x wsid=%x\n",
-                   hdr->addr2[0], hdr->addr2[1], hdr->addr2[2],
-                   hdr->addr2[3], hdr->addr2[4], hdr->addr2[5], rxphy->rpci, rxdesc->RxResult, rxdesc->wsid);
-#endif
         }
         if(sc->sh->cfg.rssi_ctl){
             rxs->signal = (-rxphy->rpci) + sc->sh->cfg.rssi_ctl;
@@ -5030,10 +4427,8 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
 #endif
     rxs->rx_flags = 0;
 #endif
-#if LINUX_VERSION_CODE >= 0x030400
     if (rxphy->aggregate)
         rxs->flag |= RX_FLAG_NO_SIGNAL_VAL;
-#endif
     sc->hw_mng_used = rxdesc->mng_used;
     if ( (ieee80211_is_data(fc) || ieee80211_is_data_qos(fc))
         && ieee80211_has_protected(fc))
@@ -5056,24 +4451,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
             rx_hw_dec = sta_priv->has_hw_decrypt;
             do_sw_dec = sta_priv->need_sw_decrypt;
         }
-        #if 0
-        if (rx_count++ < 20)
-        {
-            printk(KERN_ERR "HW DEC (%d - %d) %d %02X:%02X:%02X:%02X:%02X:%02X\n",
-                   rx_hw_dec, do_sw_dec, rxdesc->wsid,
-                   hdr->addr1[0], hdr->addr1[1], hdr->addr1[2],
-                   hdr->addr1[3], hdr->addr1[4], hdr->addr1[5]);
-            _ssv6xxx_hexdump("M ", (const u8 *)rx_skb->data, (rx_skb->len > 128) ? 128 : rx_skb->len);
-        }
-        #endif
-        #if 0
-        dev_err(sc->dev, "R %02X:%02X:%02X:%02X:%02X:%02X %d %d\n",
-                hdr->addr2[0], hdr->addr2[1], hdr->addr2[2],
-                hdr->addr2[3], hdr->addr2[4], hdr->addr2[5],
-                rx_hw_dec, do_sw_dec);
-        _ssv6xxx_hexdump("R ", (const u8 *)rx_skb->data,
-                         (rx_skb->len > 128) ? 128 : rx_skb->len);
-        #endif
     }
     if (sc->dbg_rx_frame)
     {
@@ -5086,19 +4463,8 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
     if (is_beacon)
         ssv6xxx_noa_detect(sc, hdr, rx_skb->len);
 #endif
-#ifdef USE_LOCAL_CRYPTO
     if ((rx_hw_dec == false) && (do_sw_dec == true))
     {
-#ifndef MULTI_THREAD_ENCRYPT
-        ret = ssv6xxx_skb_decrypt(rx_skb, sta, sc);
-        if (ret < 0)
-        {
-            dev_err(sc->dev, "[Local Crypto]: Fail to decrypt local: %02X:%02X:%02X:%02X:%02X:%02X, ret = %d.\n",
-                hdr->addr2[0], hdr->addr2[1], hdr->addr2[2],
-                hdr->addr2[3], hdr->addr2[4], hdr->addr2[5], ret);
-            goto drop_rx;
-        }
-#else
         skb_info->sta = sta;
         ret = ssv6xxx_skb_pre_decrypt(rx_skb, sta, sc);
         if (ret == 0)
@@ -5106,10 +4472,8 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
             skb_info->crypt_st = PKT_CRYPT_ST_DEC_PRE;
             spin_lock_irqsave(&sc->crypt_st_lock, flags);
             __skb_queue_tail(&sc->preprocess_q, rx_skb);
-            #ifdef CONFIG_SSV6XXX_DEBUGFS
             if (sc->max_preprocess_q_len < skb_queue_len(&sc->preprocess_q))
                 sc->max_preprocess_q_len = skb_queue_len(&sc->preprocess_q);
-            #endif
             spin_unlock_irqrestore(&sc->crypt_st_lock, flags);
             list_for_each_entry_reverse(ta, &sc->encrypt_task_head, list)
             {
@@ -5138,9 +4502,7 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
             dev_kfree_skb_any(rx_skb);
             return;
         }
-#endif
     }
-#endif
     if (rx_hw_dec || do_sw_dec)
     {
         hdr = (struct ieee80211_hdr *)rx_skb->data;
@@ -5148,32 +4510,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
         hdr->frame_control = hdr->frame_control & ~(cpu_to_le16(IEEE80211_FCTL_PROTECTED));
         rxs->flag |= (RX_FLAG_DECRYPTED|RX_FLAG_IV_STRIPPED);
     }
-#if 0
-    if ( is_broadcast_ether_addr(hdr->addr1)
-        && (ieee80211_is_data_qos(fc) || ieee80211_is_data(fc)))
-#endif
-#if 0
-    if (ieee80211_is_probe_req(fc))
-    {
-        #if 0
-        printk(KERN_ERR "RX M: 1 %02X:%02X:%02X:%02X:%02X:%02X  (%d - %d - %d)\n",
-               hdr->addr1[0], hdr->addr1[1], hdr->addr1[2],
-               hdr->addr1[3], hdr->addr1[4], hdr->addr1[5],
-               (le16_to_cpu(hdr->seq_ctrl) >> 4),
-               rxdesc->wsid, ieee80211_has_protected(fc));
-        #endif
-        printk(KERN_ERR "Probe Req: 2 %02X:%02X:%02X:%02X:%02X:%02X\n",
-               hdr->addr2[0], hdr->addr2[1], hdr->addr2[2],
-               hdr->addr2[3], hdr->addr2[4], hdr->addr2[5]);
-        #if 0
-        printk(KERN_ERR "RX M: 3 %02X:%02X:%02X:%02X:%02X:%02X\n",
-               hdr->addr3[0], hdr->addr3[1], hdr->addr3[2],
-               hdr->addr3[3], hdr->addr3[4], hdr->addr3[5]);
-        #endif
-        _ssv6xxx_hexdump("RX frame", (const u8 *)rx_skb->data,
-                         (rx_skb->len > 128) ? 128 : rx_skb->len);
-    }
-#endif
     #if defined(USE_THREAD_RX) && !defined(IRQ_PROC_RX_DATA)
     local_bh_disable();
     ieee80211_rx(sc->hw, rx_skb);
@@ -5183,11 +4519,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
     #endif
  return;
 drop_rx:
-#if 0
-    dev_err(sc->dev, "D %02X:%02X:%02X:%02X:%02X:%02X\n",
-            hdr->addr2[0], hdr->addr2[1], hdr->addr2[2],
-            hdr->addr2[3], hdr->addr2[4], hdr->addr2[5]);
-#endif
     dev_kfree_skb_any(rx_skb);
 }
 #ifdef IRQ_PROC_RX_DATA
@@ -5241,13 +4572,6 @@ void _process_rx_q (struct ssv_softc *sc, struct sk_buff_head *rx_q, spinlock_t 
             }
             else if (h_evt->h_event == SOC_EVT_RC_MPDU_REPORT)
             {
-                #if 0
-                struct cfg_host_event *host_event;
-                struct firmware_rate_control_report_data *report_data;
-                host_event = (struct cfg_host_event *)rxdesc;
-                report_data = (struct firmware_rate_control_report_data *)&host_event->dat[0];
-                printk("MPDU report get!!wsid[%d]didx[%d]F[%d]S[%d]\n",report_data->wsid,report_data->rates[0].data_rate,report_data->ampdu_len,report_data->ampdu_ack_len);
-                #endif
                 skb_queue_tail(&sc->rc_report_queue, skb);
                 if (sc->rc_sample_sechedule == 0)
                     queue_work(sc->rc_sample_workqueue, &sc->rc_sample_work);
@@ -5391,29 +4715,12 @@ void ssv6xxx_foreach_sta (struct ssv_softc *sc, void (*sta_func)(struct ssv_soft
 {
     int i;
     BUG_ON(sta_func == NULL);
-#if 0
-    for (i = 0; i < SSV6200_MAX_VIF; i++)
-    {
-        struct ssv_vif_priv_data *vif_priv;
-        int j;
-        if (sc->vif_info[i].vif == NULL)
-            continue;
-        vif_priv = (struct ssv_vif_priv_data *)sc->vif[i]->drv_priv;
-        for (j = 0; j < SSV_NUM_STA; j++)
-        {
-            if ((vif_priv->sta_info[j].s_flags & STA_FLAG_VALID) == 0)
-                continue;
-            (*sta_func)(sc, &vif_priv->sta_info[j], param);
-        }
-    }
-#else
     for (i = 0; i < SSV_NUM_STA; i++)
     {
         if ((sc->sta_info[i].s_flags & STA_FLAG_VALID) == 0)
             continue;
         (*sta_func)(sc, &sc->sta_info[i], param);
     }
-#endif
 }
 void ssv6xxx_foreach_vif_sta (struct ssv_softc *sc,
                               struct ssv_vif_info *vif_info,
@@ -5441,7 +4748,6 @@ void ssv6xxx_foreach_vif_sta (struct ssv_softc *sc,
         (*sta_func)(sc, vif_info, sta_priv_iter->sta_info, param);
     }
 }
-#ifdef CONFIG_SSV6XXX_DEBUGFS
 ssize_t ssv6xxx_tx_queue_status_dump (struct ssv_softc *sc, char *status_buf,
                                       ssize_t length)
 {
@@ -5450,7 +4756,6 @@ ssize_t ssv6xxx_tx_queue_status_dump (struct ssv_softc *sc, char *status_buf,
     prt_size = snprintf(status_buf, buf_size, "\nSMAC driver queue status:.\n");
     status_buf += prt_size;
     buf_size -= prt_size;
-    #ifdef MULTI_THREAD_ENCRYPT
     prt_size = snprintf(status_buf, buf_size, "\tCrypto pre-process queue: %d.\n",
                         skb_queue_len(&sc->preprocess_q));
     status_buf += prt_size;
@@ -5467,7 +4772,6 @@ ssize_t ssv6xxx_tx_queue_status_dump (struct ssv_softc *sc, char *status_buf,
                         sc->max_crypted_q_len);
     status_buf += prt_size;
     buf_size -= prt_size;
-    #endif
     prt_size = snprintf(status_buf, buf_size, "\tTX queue: %d\n",
                         skb_queue_len(&sc->tx_skb_q));
     status_buf += prt_size;
@@ -5478,4 +4782,3 @@ ssize_t ssv6xxx_tx_queue_status_dump (struct ssv_softc *sc, char *status_buf,
     buf_size -= prt_size;
     return (length - buf_size);
 }
-#endif
