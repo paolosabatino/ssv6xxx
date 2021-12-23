@@ -54,7 +54,6 @@ include $(KBUILD_TOP)/platform-config.mak
 
 EXTRA_CFLAGS := -I$(KBUILD_TOP) -I$(KBUILD_TOP)/include #-Wno-error=missing-attributes
 DEF_PARSER_H = $(KBUILD_TOP)/include/ssv_conf_parser.h
-$(shell env ccflags="$(ccflags-y)" $(KBUILD_TOP)/parser-conf.sh $(DEF_PARSER_H))
 
 OBJS := ssvdevice/ssvdevice.c \
 	ssvdevice/ssv_cmd.c \

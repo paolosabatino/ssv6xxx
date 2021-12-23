@@ -23,7 +23,6 @@
 #endif
 #include <linux/platform_device.h>
 #include <linux/string.h>
-#include <ssv_conf_parser.h>
 #include <ssv6200_reg.h>
 #include <ssv6200.h>
 #include <hci/hctrl.h>
@@ -1341,12 +1340,6 @@ static int ssv_cmd_version (int argc, char *argv[]) {
     strcat(ssv6xxx_result_buf, temp_str);
     sprintf(temp_str,"\n[Compiler Option!!]\n");
     strcat(ssv6xxx_result_buf, temp_str);
-    regval = sizeof(conf_parser)/ sizeof(*conf_parser);
-    while(regval)
-    {
-        sprintf(temp_str,"Define %s \n", conf_parser[--regval]);
-        strcat(ssv6xxx_result_buf, temp_str);
-    };
     return 0;
 }
 static int ssv_cmd_tool(int argc, char *argv[])
