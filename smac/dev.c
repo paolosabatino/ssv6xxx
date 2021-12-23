@@ -3369,13 +3369,9 @@ static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
         return -EOPNOTSUPP;
     }
     if( ( action == IEEE80211_AMPDU_TX_START
-           #if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-           || action == IEEE80211_AMPDU_TX_STOP
-           #else
            || action == IEEE80211_AMPDU_TX_STOP_CONT
            || action == IEEE80211_AMPDU_TX_STOP_FLUSH
            || action == IEEE80211_AMPDU_TX_STOP_FLUSH_CONT
-           #endif
            || action == IEEE80211_AMPDU_TX_OPERATIONAL )
        && (!(sc->sh->cfg.hw_caps & SSV6200_HW_CAP_AMPDU_TX)))
     {
@@ -3385,17 +3381,6 @@ static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
     switch (action)
     {
         case IEEE80211_AMPDU_RX_START:
-#ifdef WIFI_CERTIFIED
-            if (sc->rx_ba_session_count >= SSV6200_RX_BA_MAX_SESSIONS)
-            {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3,1,0)
-                ieee80211_stop_rx_ba_session(vif,
-           (1<<(sc->ba_tid)),
-           sc->ba_ra_addr);
-#endif
-                sc->rx_ba_session_count--;
-            }
-#else
             if ((sc->rx_ba_session_count >= SSV6200_RX_BA_MAX_SESSIONS) && (sc->rx_ba_sta != sta))
             {
                 ret = -EBUSY;
@@ -3403,12 +3388,9 @@ static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
             }
             else if ((sc->rx_ba_session_count >= SSV6200_RX_BA_MAX_SESSIONS) && (sc->rx_ba_sta == sta))
             {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3,1,0)
                 ieee80211_stop_rx_ba_session(vif,(1<<(sc->ba_tid)),sc->ba_ra_addr);
-#endif
                 sc->rx_ba_session_count--;
             }
-#endif
             printk(KERN_ERR "IEEE80211_AMPDU_RX_START %02X:%02X:%02X:%02X:%02X:%02X %d.\n",
                    sta->addr[0], sta->addr[1], sta->addr[2], sta->addr[3],
                    sta->addr[4], sta->addr[5], tid);
@@ -3432,13 +3414,9 @@ static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
             ssv6200_ampdu_tx_start(tid, sta, hw, ssn);
             ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
             break;
-        #if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-        case IEEE80211_AMPDU_TX_STOP:
-        #else
         case IEEE80211_AMPDU_TX_STOP_CONT:
         case IEEE80211_AMPDU_TX_STOP_FLUSH:
         case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
-        #endif
             printk(KERN_ERR "AMPDU_TX_STOP %02X:%02X:%02X:%02X:%02X:%02X %d.\n",
                    sta->addr[0], sta->addr[1], sta->addr[2], sta->addr[3],
                    sta->addr[4], sta->addr[5], tid);
@@ -3706,33 +3684,18 @@ void mitigate_cci(struct ssv_softc *sc, u32 input_level)
         return;
     }
     if (time_after(jiffies, last_jiffies + msecs_to_jiffies(3000))) {
-#ifdef DEBUG_MITIGATE_CCI
-  printk("jiffies=%lu, input_level=%d\n", jiffies, input_level);
-#endif
   last_jiffies = jiffies;
   if(( input_level >= adjust_cci[current_gate].down_level) && (input_level <= adjust_cci[current_gate].upper_level)) {
             current_level = input_level;
-#ifdef DEBUG_MITIGATE_CCI
-   printk("Keep the 0xce0020a0[%x] 0xce002008[%x]!!\n"
-       ,adjust_cci[current_gate].adjust_cca_control,adjust_cci[current_gate].adjust_cca_1);
-#endif
   }
   else {
             if(current_level < input_level) {
                 for (i = 0; i < size; i++) {
                  if (input_level <= adjust_cci[i].upper_level) {
-#ifdef DEBUG_MITIGATE_CCI
-                 printk("gate=%d, input_level=%d, adjust_cci[%d].upper_level=%d, value=%08x\n",
-                             current_gate, input_level, i, adjust_cci[i].upper_level, adjust_cci[i].adjust_cca_control);
-#endif
                         current_level = input_level;
                         current_gate = i;
                         SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_CONTROL, adjust_cci[i].adjust_cca_control);
                         SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_1, adjust_cci[i].adjust_cca_1);
-#ifdef DEBUG_MITIGATE_CCI
-                        printk("##Set to the 0xce0020a0[%x] 0xce002008[%x]##!!\n"
-                   ,adjust_cci[current_gate].adjust_cca_control,adjust_cci[current_gate].adjust_cca_1);
-#endif
                      return;
                  }
              }
@@ -3740,18 +3703,10 @@ void mitigate_cci(struct ssv_softc *sc, u32 input_level)
             else {
                 for (i = (size -1); i >= 0; i--) {
                  if (input_level >= adjust_cci[i].down_level) {
-#ifdef DEBUG_MITIGATE_CCI
-                     printk("gate=%d, input_level=%d, adjust_cci[%d].down_level=%d, value=%08x\n",
-                             current_gate, input_level, i, adjust_cci[i].down_level, adjust_cci[i].adjust_cca_control);
-#endif
                         current_level = input_level;
                         current_gate = i;
                         SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_CONTROL, adjust_cci[i].adjust_cca_control);
                         SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_1, adjust_cci[i].adjust_cca_1);
-#ifdef DEBUG_MITIGATE_CCI
-                        printk("##Set to the 0xce0020a0[%x] 0xce002008[%x]##!!\n"
-                   ,adjust_cci[current_gate].adjust_cca_control,adjust_cci[current_gate].adjust_cca_1);
-#endif
                      return;
                  }
              }
@@ -3787,19 +3742,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
     int ret = 0;
     struct ssv_encrypt_task_list *ta = NULL;
     unsigned long flags;
-#ifdef CONFIG_SSV_SMARTLINK
-    {
-        extern int ksmartlink_smartlink_started(void);
-        void smartlink_nl_send_msg(struct sk_buff *skb);
-        if (unlikely(ksmartlink_smartlink_started()))
-        {
-            skb_pull(rx_skb, SSV6XXX_RX_DESC_LEN);
-            skb_trim(rx_skb, rx_skb->len-sc->sh->rx_pinfo_pad);
-            smartlink_nl_send_msg(rx_skb);
-            return;
-        }
-    }
-#endif
     rxdesc = (struct ssv6200_rx_desc *)rx_skb->data;
     rxphy = (struct ssv6200_rxphy_info *)(rx_skb->data + sizeof(*rxdesc));
     rxphypad = (struct ssv6200_rxphy_info_padding *)(rx_skb->data + rx_skb->len - sizeof(struct ssv6200_rxphy_info_padding));
@@ -3817,15 +3759,9 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
     rxs = IEEE80211_SKB_RXCB(rx_skb);
     memset(rxs, 0, sizeof(struct ieee80211_rx_status));
     ssv6xxx_rc_mac8011_rate_idx(sc, rxdesc->rate_idx, rxs);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 //    printk("mactime=%u, len=%d\r\n", *((u32 *)&rx_skb->data[28]), rxdesc->len);    //+++
     rxs->mactime = *((u32 *)&rx_skb->data[28]);
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-    chan = sc->hw->conf.channel;
-#else
     chan = sc->hw->conf.chandef.chan;
-#endif
     rxs->band = chan->band;
     rxs->freq = chan->center_freq;
     rxs->antenna = 1;
@@ -3852,11 +3788,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
             if(sta)
             {
                 sta_priv = (struct ssv_sta_priv_data *)sta->drv_priv;
-#ifdef SSV_RSSI_DEBUG
-                printk(KERN_DEBUG "b_beacon %02X:%02X:%02X:%02X:%02X:%02X rssi=%d, snr=%d\n",
-                                       hdr->addr2[0], hdr->addr2[1],hdr->addr2[2], hdr->addr2[3],
-                                       hdr->addr2[4], hdr->addr2[5],rxphypad->rpci, rxphypad->snr);
-#endif
                 if(is_beacon)
                 {
                     mgmt = (struct ieee80211_mgmt *)(rx_skb->data + SSV6XXX_RX_DESC_LEN);
@@ -3864,14 +3795,7 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
                     if (p)
                     {
                         u32 beacon_channel = (int)p[2];
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-                        struct ieee80211_channel *chan;
-                        u32 bss_chan_hw_value;
-                        chan = sc->hw->conf.channel;
-                        bss_chan_hw_value = chan->hw_value;
-#else
                         u32 bss_chan_hw_value = sc->vif_info[0].vif->bss_conf.chandef.chan->hw_value;
-#endif
                         if( beacon_channel != bss_chan_hw_value )
                         {
                             diff_channel_cnt++;
@@ -3894,9 +3818,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
                 }
                 else
                     sta_priv->beacon_rssi = (rxphypad->rpci << RSSI_DECIMAL_POINT_SHIFT);
-#ifdef SSV_RSSI_DEBUG
-                printk("Beacon smoothing RSSI %d\n",rxphypad->rpci);
-#endif
                 mitigate_cci(sc, rxphypad->rpci);
             }
             else {
@@ -3949,11 +3870,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
             if(sta)
             {
                 sta_priv = (struct ssv_sta_priv_data *)sta->drv_priv;
-#ifdef SSV_RSSI_DEBUG
-    printk("gn_beacon %02X:%02X:%02X:%02X:%02X:%02X rssi=%d, snr=%d\n",
-           hdr->addr2[0], hdr->addr2[1],hdr->addr2[2], hdr->addr2[3],
-           hdr->addr2[4], hdr->addr2[5],rxphy->rpci, rxphy->snr);
-#endif
                 if(sta_priv->beacon_rssi)
                 {
                     sta_priv->beacon_rssi = ((rxphy->rpci << RSSI_DECIMAL_POINT_SHIFT)
@@ -3962,9 +3878,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
                 }
                 else
                     sta_priv->beacon_rssi = (rxphy->rpci << RSSI_DECIMAL_POINT_SHIFT);
-#ifdef SSV_RSSI_DEBUG
-                printk("Beacon smoothing RSSI %d\n",rxphy->rpci);
-#endif
             }
             if(rxphy->rpci > 88)
                 rxphy->rpci = 88;
@@ -3976,30 +3889,14 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
         }
     }
     else {
-#ifdef SSV_RSSI_DEBUG
-        printk("########unicast: %d, b_rssi/snr: %d/%d, gn_rssi/snr: %d/%d, rate:%d###############\n",
-                rxdesc->unicast, (-rxphy->rpci), rxphy->snr, (-rxphypad->rpci), rxphypad->snr, rxdesc->rate_idx);
-  printk("RSSI, %d, rate_idx, %d\n", rxs->signal, rxdesc->rate_idx);
-  printk("rxdesc->RxResult = %x,rxdesc->wsid = %d\n",rxdesc->RxResult,rxdesc->wsid);
-#endif
         sta = ssv6xxx_find_sta_by_rx_skb(sc, rx_skb);
         if(sta)
         {
             sta_priv = (struct ssv_sta_priv_data *)sta->drv_priv;
             rxs->signal = -(sta_priv->beacon_rssi >> RSSI_DECIMAL_POINT_SHIFT);
         }
-#ifdef SSV_RSSI_DEBUG
-        printk("Others signal %d\n",rxs->signal);
-#endif
     }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-    rxs->flag = RX_FLAG_MACTIME_MPDU;
-#else
-//    rxs->flag = RX_FLAG_MACTIME_START;          //+++
-#endif
     rxs->rx_flags = 0;
-#endif
     if (rxphy->aggregate)
         rxs->flag |= RX_FLAG_NO_SIGNAL_VAL;
     sc->hw_mng_used = rxdesc->mng_used;
@@ -4032,10 +3929,6 @@ static void _proc_data_rx_skb (struct ssv_softc *sc, struct sk_buff *rx_skb)
     }
     skb_pull(rx_skb, SSV6XXX_RX_DESC_LEN);
     skb_trim(rx_skb, rx_skb->len-sc->sh->rx_pinfo_pad);
-#ifdef CONFIG_P2P_NOA
-    if (is_beacon)
-        ssv6xxx_noa_detect(sc, hdr, rx_skb->len);
-#endif
     if ((rx_hw_dec == false) && (do_sw_dec == true))
     {
         skb_info->sta = sta;
@@ -4187,13 +4080,6 @@ void _process_rx_q (struct ssv_softc *sc, struct sk_buff_head *rx_q, spinlock_t 
                     dev_warn(sc->dev, "Reset event ignored.\n");
                 }
             }
-#ifdef CONFIG_P2P_NOA
-            else if(h_evt->h_event == SOC_EVT_NOA)
-            {
-                ssv6xxx_process_noa_event(sc, skb);
-                dev_kfree_skb_any(skb);
-            }
-#endif
    else if (h_evt->h_event == SOC_EVT_SDIO_TXTPUT_RESULT) {
     printk("data SDIO TX throughput %d Kbps\n", h_evt->evt_seq_no);
                 dev_kfree_skb_any(skb);
