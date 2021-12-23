@@ -227,12 +227,6 @@ u8 key_2char2num(u8 hch, u8 lch)
 
 extern struct ssv6xxx_cfg ssv_cfg;
 extern char *ssv_initmac;
-#ifdef ROCKCHIP_3126_SUPPORT
-extern int rockchip_wifi_mac_addr(unsigned char *buf);
-#endif
-#ifdef AML_WIFI_MAC
-extern u8 *wifi_get_mac(void);
-#endif
 void efuse_read_all_map(struct ssv_hw *sh)
 {
 	u8 mac[ETH_ALEN] = { 0 };
@@ -242,20 +236,9 @@ void efuse_read_all_map(struct ssv_hw *sh)
 	u8 pseudo_mac0[ETH_ALEN] = { 0x00, 0x33, 0x33, 0x33, 0x33, 0x33 };
 #endif
 	u8 rom_mac0[ETH_ALEN];
-#ifdef EFUSE_DEBUG
-	int i;
-#endif
 	memset(rom_mac0, 0x00, ETH_ALEN);
 	memset(efuse_mapping_table, 0x00, EFUSE_HWSET_MAX_SIZE / 8);
 	read_efuse(sh, efuse_mapping_table);
-#ifdef EFUSE_DEBUG
-	for (i = 0; i < (EFUSE_HWSET_MAX_SIZE / 8); i++) {
-		if (i % 4 == 0)
-			printk("\n");
-		pr_debug("%02x-", efuse_mapping_table[i]);
-	}
-	printk("\n");
-#endif
 	parser_efuse(efuse_mapping_table, rom_mac0);
 	ssv_cfg.r_calbration_result =
 	    (u8) SSV_EFUSE_ITEM_TABLE[EFUSE_R_CALIBRATION_RESULT].value;
@@ -267,31 +250,6 @@ void efuse_read_all_map(struct ssv_hw *sh)
 	ssv_cfg.tx_power_index_2 =
 	    (u8) SSV_EFUSE_ITEM_TABLE[EFUSE_TX_POWER_INDEX_2].value;
 	if (!is_valid_ether_addr(&sh->cfg.maddr[0][0])) {
-#ifdef AML_WIFI_MAC
-		memcpy(mac, wifi_get_mac(), ETH_ALEN);
-		if (is_valid_ether_addr(mac)) {
-			pr_info("Aml  get mac address from key "
-			       "[%02x:%02x:%02x:%02x:%02x:%02x]\n",
-			       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-			memcpy(&sh->cfg.maddr[0][0], mac, ETH_ALEN);
-			addr_increase_copy(&sh->cfg.maddr[1][0], mac);
-			goto Done;
-		} else {
-			printk(">=========Aml invalid_wifi_addr=========< \n");
-		}
-#endif
-#ifdef ROCKCHIP_3126_SUPPORT
-		if (!rockchip_wifi_mac_addr(mac)) {
-			pr_info
-			    ("=========> get mac address from flash [%02x:%02x:%02x:%02x:%02x:%02x]\n",
-			     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-			if (is_valid_ether_addr(mac)) {
-				memcpy(&sh->cfg.maddr[0][0], mac, ETH_ALEN);
-				addr_increase_copy(&sh->cfg.maddr[1][0], mac);
-				goto Done;
-			}
-		}
-#endif
 		if (!sh->cfg.ignore_efuse_mac) {
 			if (is_valid_ether_addr(rom_mac0)) {
 				pr_info("MAC address from e-fuse\n");
