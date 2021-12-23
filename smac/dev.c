@@ -35,19 +35,31 @@
 #include "p2p.h"
 #include "ssv_pm.h"
 #include <linux/freezer.h>
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,2,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-#include "linux_3_0_0.h"
-#endif
 #include "ssv6xxx_debugfs.h"
-struct rssi_res_st rssi_res, *p_rssi_res;
+
 #define NO_USE_RXQ_LOCK 
+
 #ifndef WLAN_CIPHER_SUITE_SMS4
 #define WLAN_CIPHER_SUITE_SMS4 0x00147201
 #endif
+
 #define MAX_CRYPTO_Q_LEN (64)
 #define LOW_CRYPTO_Q_LEN (MAX_CRYPTO_Q_LEN/2)
 #define MAX_TX_Q_LEN (64)
 #define LOW_TX_Q_LEN (MAX_TX_Q_LEN/2)
+
+#define BSS_CHANGED_SSID (1<<15)
+#define ADDRESS_OFFSET 16
+#define HW_ID_OFFSET 7
+#define CH0_FULL_MASK CH0_FULL_MSK
+#define MAX_FAIL_COUNT 100
+#define MAX_RETRY_COUNT 20
+
+#define FAIL_MAX 100
+#define RETRY_MAX 20
+
+#define CTRL_FRAME_INDEX(fc) ((hdr->frame_control-IEEE80211_STYPE_BACK_REQ)>>4)
+
 static u16 bits_per_symbol[][2] =
 {
     { 26, 54 },
@@ -59,10 +71,9 @@ static u16 bits_per_symbol[][2] =
     { 234, 486 },
     { 260, 540 },
 };
-#ifdef CONFIG_DEBUG_SKB_TIMESTAMP
-extern struct ssv6xxx_hci_ctrl *ssv_dbg_ctrl_hci;
-extern unsigned int cal_duration_of_ampdu(struct sk_buff *ampdu_skb, int stage);
-#endif
+
+struct rssi_res_st rssi_res, *p_rssi_res;
+
 struct ssv6xxx_calib_table {
     u16 channel_id;
     u32 rf_ctrl_N;
@@ -73,15 +84,7 @@ static void _process_rx_q (struct ssv_softc *sc, struct sk_buff_head *rx_q, spin
 static u32 _process_tx_done (struct ssv_softc *sc);
 static u32 _remove_sta_skb_from_q (struct ssv_softc *sc, struct sk_buff_head *q,
                                    u32 addr0_3, u32 addr4_5);
-#ifdef CONFIG_DEBUG_SKB_TIMESTAMP
-unsigned int cal_duration_of_mpdu(struct sk_buff *mpdu_skb)
-{
- unsigned int timeout;
- SKB_info *mpdu_skb_info = (SKB_info *)mpdu_skb->head;
- timeout = (unsigned int)ktime_to_ms(ktime_sub(ktime_get(), mpdu_skb_info->timestamp));
- return timeout;
-}
-#endif
+
 unsigned int skb_queue_len_safe(struct sk_buff_head *list)
 {
     unsigned long flags;
@@ -109,22 +112,12 @@ void _ssv6xxx_hexdump(const char *title, const u8 *buf,
 }
 void ssv6xxx_txbuf_free_skb(struct sk_buff *skb, void *args)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
     struct ssv_softc *sc = (struct ssv_softc *)args;
-#endif
     if (!skb)
         return;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
     ieee80211_free_txskb(sc->hw, skb);
-#else
-    dev_kfree_skb_any(skb);
-#endif
 }
-#define ADDRESS_OFFSET 16
-#define HW_ID_OFFSET 7
-#define CH0_FULL_MASK CH0_FULL_MSK
-#define MAX_FAIL_COUNT 100
-#define MAX_RETRY_COUNT 20
+
 inline bool ssv6xxx_mcu_input_full(struct ssv_softc *sc)
 {
     u32 regval=0;
@@ -188,107 +181,6 @@ bool ssv6xxx_pbuf_free(struct ssv_softc *sc, u32 pbuf_addr)
     mutex_unlock(&sc->mem_mutex);
     return true;
 }
-#ifdef CONFIG_SSV_CABRIO_A
-static const struct ssv6xxx_calib_table vt_tbl[] =
-{
-    { 1, 0xf1, 0x333333, 3859},
-    { 2, 0xf1, 0xB33333, 3867},
-    { 3, 0xf2, 0x333333, 3875},
-    { 4, 0xf2, 0xB33333, 3883},
-    { 5, 0xf3, 0x333333, 3891},
-    { 6, 0xf3, 0xB33333, 3899},
-    { 7, 0xf4, 0x333333, 3907},
-    { 8, 0xf4, 0xB33333, 3915},
-    { 9, 0xf5, 0x333333, 3923},
-    { 10, 0xf5, 0xB33333, 3931},
-    { 11, 0xf6, 0x333333, 3939},
-    { 12, 0xf6, 0xB33333, 3947},
-    { 13, 0xf7, 0x333333, 3955},
-    { 14, 0xf8, 0x666666, 3974},
-};
-int ssv6xxx_set_channel(struct ssv_softc *sc, int ch)
-{
-    int retry_cnt, fail_cnt=0;
-    struct ssv_hw *sh=sc->sh;
-    u32 regval;
-    int ret = 0;
-    int chidx;
-    bool chidx_vld = 0;
-    for(chidx = 0; chidx < (sizeof(vt_tbl)/sizeof(vt_tbl[0])); chidx++) {
-        if (vt_tbl[chidx].channel_id == ch) {
-            chidx_vld = 1;
-            break;
-        }
-    }
-    if (chidx_vld == 0) {
-        printk("%s(): fail! channel_id not found in vt_tbl\n", __FUNCTION__);
-        return -1;
-    }
-    do {
-        if ((ret = SMAC_REG_READ(sh, ADR_SPI_TO_PHY_PARAM1, &regval)) != 0) break;
-        if ((ret = SMAC_REG_WRITE(sh,ADR_SPI_TO_PHY_PARAM1,(regval&~0xffff)|3)) != 0) break;
-        ssv6xxx_rf_disable(sc->sh);
-        if ((ret = SMAC_REG_SET_BITS(sc->sh, ADR_CBR_SYN_DIV_SDM_XOSC,
-            (0x01<<13), (0x01<<13))) != 0) break;
-        regval = vt_tbl[chidx].rf_ctrl_F;
-        if ((ret = SMAC_REG_SET_BITS(sc->sh, ADR_CBR_SYN_RGISTER_1,
-            (regval << 0), 0x00ffffff)) != 0) break;
-        regval = vt_tbl[chidx].rf_ctrl_N;
-        if ((ret = SMAC_REG_SET_BITS(sh, ADR_CBR_SYN_RGISTER_2,
-            (regval<<0), 0x000007ff)) != 0) break;
-        if ((ret = SMAC_REG_SET_BITS(sh, ADR_CBR_MANUAL_REGISTER,
-            (64<<1), (0x000007f<<1))) != 0) break;
-        if ((ret = SMAC_REG_SET_BITS(sh, ADR_CBR_MANUAL_REGISTER,
-            (1<<0), 0x00000001)) != 0) break;
-        if ((ret = SMAC_REG_SET_BITS(sh, ADR_CBR_MANUAL_REGISTER,
-            (0<<0), 0x00000001)) != 0) break;
-        if ((ret = SMAC_REG_SET_BITS(sh, ADR_CBR_SX_ENABLE_RGISTER,
-            (1<<11), 0x00000800)) != 0) break;
-        if ((ret = SMAC_REG_SET_BITS(sh, ADR_CBR_SX_ENABLE_RGISTER,
-            (0<<12), 0x00001000)) != 0) break;
-        if ((ret = SMAC_REG_SET_BITS(sh, ADR_CBR_SX_ENABLE_RGISTER,
-            (1<<12), 0x00001000)) != 0) break;
-        for(retry_cnt=20; retry_cnt>0; retry_cnt--)
-        {
-            mdelay(20);
-            if ((ret = SMAC_REG_READ(sh, ADR_CBR_READ_ONLY_FLAGS_1, &regval)) != 0) break;
-            if (regval & 0x00000004)
-            {
-                if ((ret = SMAC_REG_SET_BITS(sh, ADR_CBR_SX_ENABLE_RGISTER,
-                (0<<12), 0x00001000)) != 0) break;
-                if ((ret = SMAC_REG_READ(sh, ADR_CBR_READ_ONLY_FLAGS_1, &regval)) != 0) break;
-                if ((regval & 0x00001800) == 0)
-                {
-                    ssv6xxx_rf_enable(sh);
-                    return 0;
-                }
-                else
-                {
-                    printk("%s(): Lock channel %d fail!\n", __FUNCTION__, vt_tbl[chidx].channel_id);
-                    if ((ret = SMAC_REG_READ(sh, ADR_CBR_READ_ONLY_FLAGS_1, &regval)) != 0) break;
-                    printk("%s(): dbg: vt-mon read out as %d when rdy\n", __FUNCTION__, ((regval & 0x00001800) >> 11));
-                    if ((ret = SMAC_REG_READ(sh, ADR_CBR_READ_ONLY_FLAGS_2, &regval)) != 0) break;
-                    printk("%s(): dbg: sub-sel read out as %d when rdy\n", __FUNCTION__, ((regval & 0x00000fe0) >> 5));
-                    if ((ret = SMAC_REG_READ(sh, ADR_CBR_SYN_DIV_SDM_XOSC, &regval)) != 0) break;
-                    printk("%s(): dbg: RG_SX_REFBYTWO read out as %d when rdy\n", __FUNCTION__, ((regval & 0x00002000) >> 13));
-                    if ((ret = SMAC_REG_READ(sh, ADR_CBR_SYN_RGISTER_1, &regval)) != 0) break;
-                    printk("%s(): dbg: RG_SX_RFCTRL_F read out as 0x%08x when rdy\n", __FUNCTION__, ((regval & 0x00ffffff) >> 0));
-                    if ((ret = SMAC_REG_READ(sh, ADR_CBR_SYN_RGISTER_2, &regval)) != 0) break;
-                    printk("%s(): dbg: RG_SX_RFCTRL_CH read out as 0x%08x when rdy\n", __FUNCTION__, ((regval & 0x000007ff) >> 0));
-                    if ((ret = SMAC_REG_READ(sh, ADR_CBR_SX_ENABLE_RGISTER, &regval)) != 0) break;
-                    printk("%s(): dbg: RG_EN_SX_VT_MON_DG read out as %d when rdy\n", __FUNCTION__, ((regval & 0x00001000) >> 12));
-                }
-            }
-        }
-        fail_cnt++;
-        printk("%s(): calibration fail [%d] rounds!!\n",
-                __FUNCTION__, fail_cnt);
-        if(fail_cnt == 100)
-            return -1;
-    } while(ret == 0);
-    return ret;
-}
-#endif
 static const struct ssv6xxx_calib_table vt_tbl[SSV6XXX_IQK_CFG_XTAL_MAX][14]=
 {
     {
@@ -340,8 +232,7 @@ static const struct ssv6xxx_calib_table vt_tbl[SSV6XXX_IQK_CFG_XTAL_MAX][14]=
         { 14, 0xCF, 0x000000, 3974},
     }
 };
-#define FAIL_MAX 100
-#define RETRY_MAX 20
+
 int ssv6xxx_set_channel(struct ssv_softc *sc, int ch)
 {
     struct ssv_hw *sh=sc->sh;
@@ -479,41 +370,6 @@ exit:
     }
     return ret;
 }
-#ifdef CONFIG_SSV_SMARTLINK
-int ssv6xxx_get_channel(struct ssv_softc *sc, int *pch)
-{
-    *pch = sc->hw_chan;
-    return 0;
-}
-int ssv6xxx_set_promisc(struct ssv_softc *sc, int accept)
-{
-    u32 val=0;
-    if (accept)
-    {
-        val = 0x2;
-    }
-    else
-    {
-        val = 0x3;
-    }
-    SMAC_REG_WRITE(sc->sh, ADR_MRX_FLT_TB13, val);
-    return 0;
-}
-int ssv6xxx_get_promisc(struct ssv_softc *sc, int *paccept)
-{
-    u32 val=0;
-    SMAC_REG_READ(sc->sh, ADR_MRX_FLT_TB13, &val);
-    if (val == 0x2)
-    {
-        *paccept = 1;
-    }
-    else
-    {
-        *paccept = 0;
-    }
-    return 0;
-}
-#endif
 int ssv6xxx_rf_enable(struct ssv_hw *sh)
 {
     return SMAC_REG_SET_BITS(sh,
@@ -547,7 +403,6 @@ int ssv6xxx_update_decision_table(struct ssv_softc *sc)
 }
 static int ssv6xxx_frame_hdrlen(struct ieee80211_hdr *hdr, bool is_ht)
 {
-    #define CTRL_FRAME_INDEX(fc) ((hdr->frame_control-IEEE80211_STYPE_BACK_REQ)>>4)
     u16 fc, CTRL_FLEN[]= { 16, 16, 16, 16, 10, 10, 16, 16 };
     int hdr_len = 24;
     fc = hdr->frame_control;
@@ -640,19 +495,9 @@ static u32 ssv6xxx_set_frame_duration(struct ieee80211_tx_info *info,
  is_ht40 = !!(tx_drate->flags & IEEE80211_TX_RC_40_MHZ_WIDTH);
     is_ht = !!(tx_drate->flags & IEEE80211_TX_RC_MCS);
     is_gf = !!(tx_drate->flags & IEEE80211_TX_RC_GREEN_FIELD);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
  if ((info->control.short_preamble) ||
   (tx_drate->flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE))
   ctrl_short_preamble = true;
-#else
-    if ((info->control.vif &&
-        info->control.vif->bss_conf.use_short_preamble) ||
-  (tx_drate->flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE))
-        ctrl_short_preamble = true;
-#endif
-#ifdef FW_RC_RETRY_DEBUG
-    printk("mcs = %d, data rate idx=%d\n",tx_drate->idx, tx_drate[3].count);
-#endif
     for (nRCParams = 0; (nRCParams < SSV62XX_TX_MAX_RATES) ; nRCParams++)
     {
         if ((rc_params == NULL) || (sc == NULL))
@@ -1080,7 +925,6 @@ static int _write_group_key_to_hw (struct ssv_softc *sc,
     ret = 0;
     return ret;
 }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 static enum SSV_CIPHER_E _prepare_key (struct ieee80211_key_conf *key)
 {
     enum SSV_CIPHER_E cipher;
@@ -1096,11 +940,7 @@ static enum SSV_CIPHER_E _prepare_key (struct ieee80211_key_conf *key)
             cipher = SSV_CIPHER_TKIP;
             break;
         case WLAN_CIPHER_SUITE_CCMP:
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-            key->flags |= IEEE80211_KEY_FLAG_SW_MGMT;
-#else
             key->flags |= (IEEE80211_KEY_FLAG_SW_MGMT_TX | IEEE80211_KEY_FLAG_RX_MGMT);
-#endif
             cipher = SSV_CIPHER_CCMP;
             break;
         case WLAN_CIPHER_SUITE_SMS4:
@@ -1113,32 +953,7 @@ static enum SSV_CIPHER_E _prepare_key (struct ieee80211_key_conf *key)
     }
     return cipher;
 }
-#else
-static enum SSV_CIPHER_E _prepare_key (struct ieee80211_key_conf *key)
-{
-    enum SSV_CIPHER_E cipher;
-    switch (key->alg) {
-        case ALG_WEP:
-            if(key->keylen == 5)
-                cipher = SSV_CIPHER_WEP40;
-            else
-                cipher = SSV_CIPHER_WEP104;
-            break;
-        case ALG_TKIP:
-            cipher = SSV_CIPHER_TKIP;
-            key->flags |= IEEE80211_KEY_FLAG_GENERATE_MMIC;
-            break;
-        case ALG_CCMP:
-            cipher = SSV_CIPHER_CCMP;
-            key->flags |= IEEE80211_KEY_FLAG_SW_MGMT;
-            break;
-        default:
-            cipher = SSV_CIPHER_INVALID;
-            break;
-    }
-    return cipher;
-}
-#endif
+
 int _set_key_wep (struct ssv_softc *sc, struct ssv_vif_priv_data *vif_priv,
                   struct ssv_sta_priv_data *sta_priv, enum SSV_CIPHER_E cipher,
                   struct ieee80211_key_conf *key)
@@ -1931,11 +1746,6 @@ void ssv6xxx_tx_rate_update(struct sk_buff *skb, void *args)
     }
     return;
 }
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
-#define RTS_CTS_PROTECT(_flg) \
-    ((_flg)&IEEE80211_TX_RC_USE_RTS_CTS)? 1: \
-    ((_flg)&IEEE80211_TX_RC_USE_CTS_PROTECT)? 2: 0
-#endif
 void ssv6xxx_update_txinfo (struct ssv_softc *sc, struct sk_buff *skb)
 {
     struct ieee80211_hdr *hdr;
@@ -2004,14 +1814,10 @@ void ssv6xxx_update_txinfo (struct ssv_softc *sc, struct sk_buff *skb)
     tx_desc->hdr_offset = TXPB_OFFSET;
     tx_desc->hdr_len = ssv6xxx_frame_hdrlen(hdr, tx_desc->ht);
     tx_desc->payload_offset = tx_desc->hdr_offset + tx_desc->hdr_len;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
  if(info->control.use_rts)
   tx_desc->do_rts_cts = IEEE80211_TX_RC_USE_RTS_CTS;
  else if(info->control.use_cts_prot)
   tx_desc->do_rts_cts = IEEE80211_TX_RC_USE_CTS_PROTECT;
-#else
-    tx_desc->do_rts_cts = RTS_CTS_PROTECT(tx_drate->flags);
-#endif
     if(tx_desc->do_rts_cts == IEEE80211_TX_RC_USE_CTS_PROTECT)
         tx_desc->do_rts_cts = IEEE80211_TX_RC_USE_RTS_CTS;
     if(tx_desc->do_rts_cts == IEEE80211_TX_RC_USE_CTS_PROTECT)
@@ -2083,19 +1889,6 @@ void ssv6xxx_update_txinfo (struct ssv_softc *sc, struct sk_buff *skb)
         struct ampdu_hdr_st *ampdu_hdr = (struct ampdu_hdr_st *)skb->head;
         memcpy(&tx_desc->rc_params[0], ampdu_hdr->rates, sizeof(tx_desc->rc_params));
         nav = ssv6xxx_set_frame_duration(info, &ssv_rate, (skb->len+FCS_LEN), tx_desc, &tx_desc->rc_params[0], sc);
-        #ifdef FW_RC_RETRY_DEBUG
-        {
-            printk("[FW_RC]:param[0]: drate =%d, count =%d, crate=%d, dl_length =%d, frame_consume_time =%d, rts_cts_nav=%d\n",
-                tx_desc->rc_params[0].drate,tx_desc->rc_params[0].count,tx_desc->rc_params[0].crate,
-                tx_desc->rc_params[0].dl_length, tx_desc->rc_params[0].frame_consume_time, tx_desc->rc_params[0].rts_cts_nav);
-            printk("[FW_RC]:param[1]: drate =%d, count =%d, crate=%d, dl_length =%d, frame_consume_time =%d, rts_cts_nav=%d\n",
-                tx_desc->rc_params[1].drate,tx_desc->rc_params[1].count,tx_desc->rc_params[1].crate,
-                tx_desc->rc_params[1].dl_length, tx_desc->rc_params[1].frame_consume_time, tx_desc->rc_params[1].rts_cts_nav);
-            printk("[FW_RC]:param[2]: drate =%d, count =%d, crate=%d, dl_length =%d, frame_consume_time =%d, rts_cts_nav=%d\n",
-                tx_desc->rc_params[2].drate,tx_desc->rc_params[2].count,tx_desc->rc_params[2].crate,
-                tx_desc->rc_params[2].dl_length, tx_desc->rc_params[2].frame_consume_time, tx_desc->rc_params[2].rts_cts_nav);
-        }
-        #endif
     }
     else
     {
@@ -2213,9 +2006,6 @@ tx_mpdu:
             {
                 buffered = ssv6200_bcast_enqueue(sc, &sc->bcast_txq, skb);
                 if (1 == buffered) {
-#ifdef BCAST_DEBUG
-                    printk("ssv6200_tx:ssv6200_bcast_start\n");
-#endif
                     ssv6200_bcast_start(sc);
                 }
             }
@@ -2288,28 +2078,14 @@ bool _is_encrypt_needed(struct sk_buff *skb)
     }
     return false;
 }
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-static int ssv6200_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-static void ssv6200_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
-#else
 static void ssv6200_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control, struct sk_buff *skb)
-#endif
 {
     struct ssv_softc *sc = (struct ssv_softc *)hw->priv;
     struct SKB_info_st *skb_info = (struct SKB_info_st *)skb->head;
     struct ssv_encrypt_task_list *ta = NULL;
     unsigned long flags;
     int ret = -EOPNOTSUPP;
-    #if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-    struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-    skb_info->sta = info->control.sta;
-    #else
     skb_info->sta = control ? control->sta : NULL;
-    #endif
-#ifdef CONFIG_DEBUG_SKB_TIMESTAMP
- skb_info->timestamp = ktime_get();
-#endif
     skb_info->crypt_st = PKT_CRYPT_ST_ENC_DONE;
     if(_is_encrypt_needed(skb))
     {
@@ -2354,9 +2130,7 @@ static void ssv6200_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *con
         if (skb_queue_len(&sc->tx_skb_q) >= MAX_TX_Q_LEN)
             ieee80211_stop_queues(sc->hw);
     } while (0);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-    return NETDEV_TX_OK;
-#endif
+
 }
 int ssv6xxx_encrypt_task (void *data)
 {
@@ -2628,33 +2402,6 @@ int ssv6xxx_tx_task (void *data)
                 break;
             _ssv6xxx_tx(sc->hw, tx_skb);
         } while (1);
-#ifdef CONFIG_DEBUG_SKB_TIMESTAMP
-  {
-   struct ssv_hw_txq *hw_txq = NULL;
-   struct ieee80211_tx_info *tx_info = NULL;
-   struct sk_buff *skb = NULL;
-   int txqid;
-   unsigned int timeout;
-   u32 status;
-   for (txqid=0; txqid<SSV_HW_TXQ_NUM; txqid++) {
-    hw_txq = &ssv_dbg_ctrl_hci->hw_txq[txqid];
-    skb = skb_peek(&hw_txq->qhead);
-    if (skb != NULL) {
-     tx_info = IEEE80211_SKB_CB(skb);
-     if (tx_info->flags & IEEE80211_TX_CTL_AMPDU)
-      timeout = cal_duration_of_ampdu(skb, SKB_DURATION_STAGE_IN_HWQ);
-     else
-      timeout = cal_duration_of_mpdu(skb);
-     if (timeout > SKB_DURATION_TIMEOUT_MS) {
-      HCI_IRQ_STATUS(ssv_dbg_ctrl_hci, &status);
-      printk("hci int_mask: %08x\n", ssv_dbg_ctrl_hci->int_mask);
-      printk("sdio status: %08x\n", status);
-      printk("hwq%d len: %d\n", txqid, skb_queue_len(&hw_txq->qhead));
-     }
-    }
-   }
-  }
-#endif
         if (sc->tx_q_empty || (before_timeout == 0))
         {
             u32 flused_ampdu = ssv6xxx_ampdu_flush(sc->hw);
