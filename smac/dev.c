@@ -2488,14 +2488,7 @@ static void _ssv6xxx_tx (struct ieee80211_hw *hw, struct sk_buff *skb)
     int ret;
     unsigned long flags;
     bool send_hci=false;
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
-    if(sc->ps_status == PWRSV_PREPARE)
-    {
-        if(ieee80211_is_data(hdr->frame_control))
-            ssv_wake_timeout(sc, 1);
-    }
-#endif
-    do {
+   do {
         if (info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ) {
             if (info->flags & IEEE80211_TX_CTL_FIRST_FRAGMENT)
                 sc->tx.seq_no += 0x10;
@@ -3337,16 +3330,7 @@ static int ssv6200_add_interface(struct ieee80211_hw *hw,
                               MTX_HALT_MNG_UNTIL_DTIM_MSK);
             sc->bq4_dtim = true;
         }
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
-        if(vif->p2p == 0)
-        {
-            printk(KERN_INFO "AP mode init wifi_alive_lock\n");
-            ssv_wake_lock(sc);
-			SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_CONTROL, 0x00160200);
-			SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_1, 0x20380050);
-        }
-#endif
-    }
+   }
     sc->nvif++;
     dev_err(sc->dev, "VIF %02x:%02x:%02x:%02x:%02x:%02x of type %d is added.\n",
              vif->addr[0], vif->addr[1], vif->addr[2],
@@ -3395,16 +3379,7 @@ static void ssv6200_remove_interface(struct ieee80211_hw *hw,
         }
         ssv6xxx_beacon_release(sc);
         sc->ap_vif = NULL;
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
-        if(vif->p2p == 0)
-        {
-            ssv_wake_unlock(sc);
-			SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_CONTROL, 0x0);
-            SMAC_REG_WRITE(sc->sh, ADR_RX_11B_CCA_1, 0x20300050);
-            printk(KERN_INFO "AP mode destroy wifi_alive_lock\n");
-        }
-#endif
-    }
+   }
     memset(&sc->vif_info[vif_priv->vif_idx], 0, sizeof(struct ssv_vif_info));
     sc->nvif--;
     mutex_unlock(&sc->mutex);
@@ -4163,15 +4138,9 @@ static u64 ssv6200_get_tsf(struct ieee80211_hw *hw,
 
 static u64 ssv6200_get_systime_us(void)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
-	struct timespec ts;
-	get_monotonic_boottime(&ts);
+	struct timespec64 ts;
+	ktime_get_boottime_ts64(&ts);
 	return ((u64)ts.tv_sec * 1000000) + ts.tv_nsec / 1000;
-#else
-	struct timeval tv;
-	do_gettimeofday(&tv);
-	return ((u64)tv.tv_sec * 1000000) + tv.tv_usec;
-#endif
 }
 
 static u32 pre_11b_cca_control;
