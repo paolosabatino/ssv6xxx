@@ -65,11 +65,6 @@ OBJS := ssvdevice/ssvdevice.c \
 	smac/ap.c \
 	smac/ampdu.c \
 	smac/ssv6xxx_debugfs.c \
-	smac/sec_ccmp.c \
-	smac/sec_tkip.c \
-	smac/sec_wep.c \
-	smac/wapi_sms4.c \
-	smac/sec_wpi.c \
 	smac/efuse.c \
 	smac/ssv_pm.c \
 	smac/sar.c \
