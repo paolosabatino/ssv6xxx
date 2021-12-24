@@ -25,7 +25,6 @@
 #include "ssv_cmd.h"
 #include "ssv_cfg.h"
 #include <linux/fs.h>
-#include <asm/segment.h>
 #include <asm/uaccess.h>
 #include <linux/buffer_head.h>
 #include <linux/ctype.h>
@@ -180,7 +179,7 @@ void sta_cfg_set(char *stacfgpath)
 		memset(cfg_cmd, '\0', sizeof(cfg_cmd));
 		memset(cfg_value, '\0', sizeof(cfg_value));
 		fs = get_fs();
-		set_fs(get_ds());
+		set_fs(KERNEL_DS);
 		read_len = read_line(fp, buf, MAX_CHARS_PER_LINE);
 		set_fs(fs);
 		sscanf(buf, "%s = %s", cfg_cmd, cfg_value);
@@ -207,11 +206,18 @@ void sta_cfg_set(char *stacfgpath)
 	filp_close(fp, NULL);
 }
 
-static struct file_operations ssv6xxx_dbg_fops = {
+static const struct file_operations ssv6xxx_dbg_fops = {
 	.owner = THIS_MODULE,
 	.open = ssv6xxx_dbg_open,
 	.read = ssv6xxx_dbg_read,
 	.write = ssv6xxx_dbg_write,
+};
+
+
+static const struct proc_ops ssv6xxx_dbg_proc_ops = {
+	.proc_open = ssv6xxx_dbg_open,
+	.proc_read = ssv6xxx_dbg_read,
+	.proc_write = ssv6xxx_dbg_write,
 };
 
 extern int ssv6xxx_hci_init(void);
@@ -243,7 +249,7 @@ int ssvdevice_init(void)
 	if (!procfs)
 		return -ENOMEM;
 	proc_create(DEBUG_CMD_ENTRY, S_IRUGO | S_IWUGO, procfs,
-		    &ssv6xxx_dbg_fops);
+		    &ssv6xxx_dbg_proc_ops);
 	sta_cfg_set(stacfgpath);
 
 	{
