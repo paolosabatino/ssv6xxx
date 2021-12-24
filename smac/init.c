@@ -449,13 +449,13 @@ void ssv6xxx_watchdog_restart_hw(struct ssv_softc *sc)
 #ifdef CONFIG_SSV_RSSI
 extern struct rssi_res_st rssi_res;
 #endif
-void ssv6200_watchdog_timeout(unsigned long arg)
+void ssv6200_watchdog_timeout(struct timer_list *t)
 {
 #ifdef CONFIG_SSV_RSSI
     static u32 count=0;
     struct rssi_res_st *rssi_tmp0 = NULL, *rssi_tmp1 = NULL;
 #endif
-    struct ssv_softc *sc = (struct ssv_softc *)arg;
+    struct ssv_softc *sc = from_timer(sc, t, watchdog_timeout);
     if(sc->watchdog_flag == WD_BARKING) {
         ssv6xxx_watchdog_restart_hw(sc);
         mod_timer(&sc->watchdog_timeout, jiffies + WATCHDOG_TIMEOUT);
@@ -539,15 +539,6 @@ static int ssv6xxx_init_softc(struct ssv_softc *sc)
     INIT_DELAYED_WORK(&sc->bcast_tx_work, ssv6200_bcast_tx_work);
     INIT_WORK(&sc->set_ampdu_rx_add_work, ssv6xxx_set_ampdu_rx_add_work);
     INIT_WORK(&sc->set_ampdu_rx_del_work, ssv6xxx_set_ampdu_rx_del_work);
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
-#ifdef CONFIG_HAS_EARLYSUSPEND
-    sc->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 20;
-    sc->early_suspend.suspend = ssv6xxx_early_suspend;
-    sc->early_suspend.resume = ssv6xxx_late_resume;
-    register_early_suspend(&sc->early_suspend);
-#endif
-    ssv_wakelock_init(sc);
-#endif
     sc->mac_deci_tbl = sta_deci_tbl;
     memset((void *)&sc->tx, 0, sizeof(struct ssv_tx));
     sc->tx.hw_txqid[WMM_AC_VO] = 3; sc->tx.ac_txqid[3] = WMM_AC_VO;
@@ -644,10 +635,8 @@ static int ssv6xxx_init_softc(struct ssv_softc *sc)
     skb_queue_head_init(&sc->rx_skb_q);
     sc->rx_task = kthread_run(ssv6xxx_rx_task, sc, "ssv6xxx_rx_task");
     ssv6xxx_preload_sw_cipher();
-    init_timer(&sc->watchdog_timeout);
-    sc->watchdog_timeout.expires = jiffies + 20*HZ;
-    sc->watchdog_timeout.data = (unsigned long)sc;
-    sc->watchdog_timeout.function = ssv6200_watchdog_timeout;
+    timer_setup(&sc->watchdog_timeout, ssv6200_watchdog_timeout, 0);
+    mod_timer(&sc->watchdog_timeout, jiffies + WATCHDOG_TIMEOUT);
     init_waitqueue_head(&sc->fw_wait_q);
 #ifdef CONFIG_SSV_RSSI
     INIT_LIST_HEAD(&rssi_res.rssi_list);
@@ -695,12 +684,6 @@ static int ssv6xxx_deinit_softc(struct ssv_softc *sc)
         channels = sc->sbands[INDEX_80211_BAND_2GHZ].channels;
         kfree(channels);
     }
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
-#ifdef CONFIG_HAS_EARLYSUSPEND
-    unregister_early_suspend(&sc->early_suspend);
-#endif
-    ssv_wakelock_destroy(sc);
-#endif
     ssv_skb_free(sc->rx.rx_buf);
     sc->rx.rx_buf = NULL;
     ssv6xxx_rate_control_unregister();
@@ -813,13 +796,6 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
     chip_id[12+sizeof(u32)] = 0;
     printk(KERN_INFO "CHIP ID: %s \n",chip_id);
     if(sc->ps_status == PWRSV_ENABLE){
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
-        printk(KERN_INFO "%s: wifi Alive lock timeout after 3 secs!\n",__FUNCTION__);
-        {
-            ssv_wake_timeout(sc, 3);
-            printk(KERN_INFO "wifi Alive lock!\n");
-        }
-#endif
 #ifdef CONFIG_SSV_HW_ENCRYPT_SW_DECRYPT
         SMAC_REG_WRITE(sh, ADR_RX_FLOW_DATA, M_ENG_MACRX|(M_ENG_HWHCI<<4));
 #else
