@@ -94,8 +94,8 @@ modules:
 	ARCH=arm $(MAKE) -C $(KBUILD) M=$(KBUILD_TOP)
 
 clean:
-	find -type f -iname '*_cmd.c' -exec rm {} \;
 	find -type f -iname '*.o' -exec rm {} \;
+	find -type f -iname '*.o.cmd' -exec rm {} \;
 	rm -f *.o *.ko .*.cmd *.mod.c *.symvers modules.order
 	rm -rf .tmp_versions
 
