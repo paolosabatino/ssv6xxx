@@ -234,7 +234,8 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 #endif
 #ifdef CONFIG_SSV_SUPPORT_ANDROID
 #endif
-    hw->rate_control_algorithm = "ssv6xxx_rate_control";
+    //hw->rate_control_algorithm = "ssv6xxx_rate_control";
+    hw->rate_control_algorithm = "minstrel";
     ht_info = &sc->sbands[INDEX_80211_BAND_2GHZ].ht_cap;
     ampdu_db_log("sh->cfg.hw_caps = 0x%x\n", sh->cfg.hw_caps);
     if (sh->cfg.hw_caps & SSV6200_HW_CAP_HT) {
@@ -578,10 +579,12 @@ static int ssv6xxx_init_softc(struct ssv_softc *sc)
  sc->cur_channel = NULL;
  sc->hw_chan = (-1);
     ssv6xxx_set_80211_hw_capab(sc);
+    /*
     ret = ssv6xxx_rate_control_register();
     if (ret != 0) {
         printk("%s(): Failed to register rc algorithm.\n", __FUNCTION__);
     }
+    */
 #ifdef MULTI_THREAD_ENCRYPT
     skb_queue_head_init(&sc->preprocess_q);
     skb_queue_head_init(&sc->crypted_q);
@@ -686,7 +689,7 @@ static int ssv6xxx_deinit_softc(struct ssv_softc *sc)
     }
     ssv_skb_free(sc->rx.rx_buf);
     sc->rx.rx_buf = NULL;
-    ssv6xxx_rate_control_unregister();
+    //sv6xxx_rate_control_unregister();
     cancel_delayed_work_sync(&sc->bcast_tx_work);
     //ssv6xxx_watchdog_controller(sc->sh ,(u8)SSV6XXX_HOST_CMD_WATCHDOG_STOP);
     del_timer_sync(&sc->watchdog_timeout);

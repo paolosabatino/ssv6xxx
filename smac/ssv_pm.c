@@ -136,16 +136,18 @@ static int ssv_wlan_fb_event_notify(struct notifier_block *self,
 {
         struct fb_event *event = data;
         int blank_mode = *((int *)event->data);
+	/*
         if (action == FB_EARLY_EVENT_BLANK) {
                 switch (blank_mode) {
                 case FB_BLANK_UNBLANK:
                         break;
                 default:
-      ssv6xxx_early_suspend();
+      			ssv6xxx_early_suspend();
                         break;
                 }
         }
-   else if (action == FB_EVENT_BLANK) {
+	else */
+   	if (action == FB_EVENT_BLANK) {
                 switch (blank_mode) {
                 case FB_BLANK_UNBLANK:
       ssv6xxx_late_resume();
