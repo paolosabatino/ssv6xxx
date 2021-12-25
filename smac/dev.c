@@ -4138,8 +4138,13 @@ static u64 ssv6200_get_tsf(struct ieee80211_hw *hw,
 
 static u64 ssv6200_get_systime_us(void)
 {
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,19,0)
 	struct timespec64 ts;
 	ktime_get_boottime_ts64(&ts);
+#else
+	struct timespec ts;
+	get_monotonic_boottime(&ts);
+#endif
 	return ((u64)ts.tv_sec * 1000000) + ts.tv_nsec / 1000;
 }
 

@@ -412,9 +412,6 @@ struct ssv_softc {
 #ifdef CONFIG_HAS_EARLYSUSPEND
     struct early_suspend early_suspend;
 #endif
-#ifdef CONFIG_HAS_WAKELOCK
-    struct wake_lock ssv_wake_lock_;
-#endif
 #endif
     u16 tx_wait_q_woken;
     wait_queue_head_t tx_wait_q;

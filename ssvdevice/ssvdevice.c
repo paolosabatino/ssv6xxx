@@ -213,12 +213,13 @@ static const struct file_operations ssv6xxx_dbg_fops = {
 	.write = ssv6xxx_dbg_write,
 };
 
-
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5,6,0)
 static const struct proc_ops ssv6xxx_dbg_proc_ops = {
 	.proc_open = ssv6xxx_dbg_open,
 	.proc_read = ssv6xxx_dbg_read,
 	.proc_write = ssv6xxx_dbg_write,
 };
+#endif
 
 extern int ssv6xxx_hci_init(void);
 extern void ssv6xxx_hci_exit(void);
@@ -248,8 +249,14 @@ int ssvdevice_init(void)
 	procfs = proc_mkdir(DEBUG_DIR_ENTRY, NULL);
 	if (!procfs)
 		return -ENOMEM;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5,6,0)
 	proc_create(DEBUG_CMD_ENTRY, S_IRUGO | S_IWUGO, procfs,
 		    &ssv6xxx_dbg_proc_ops);
+#else
+	proc_create(DEBUG_CMD_ENTRY, S_IRUGO | S_IWUGO, procfs,
+		    &ssv6xxx_dbg_fops);
+#endif
+
 	sta_cfg_set(stacfgpath);
 
 	{
