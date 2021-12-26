@@ -33,7 +33,7 @@
 #include <linux/debugfs.h>
 #endif
 
-static char *stacfgpath = NULL;
+char *stacfgpath = NULL;
 EXPORT_SYMBOL(stacfgpath);
 module_param(stacfgpath, charp, 0000);
 MODULE_PARM_DESC(stacfgpath, "Get path of sta cfg");
@@ -107,7 +107,7 @@ size_t read_line(struct file *fp, char *buf, size_t size)
 	}
 	buffer = buf;
 	for (;;) {
-		num_read = vfs_read(fp, &ch, 1, &fp->f_pos);
+		num_read = kernel_read(fp, &ch, 1, &fp->f_pos);
 		if (num_read < 0) {
 			if (num_read == EINTR)
 				continue;
@@ -155,7 +155,6 @@ void sta_cfg_set(char *stacfgpath)
 {
 	struct file *fp = (struct file *)NULL;
 	char buf[MAX_CHARS_PER_LINE], cfg_cmd[32], cfg_value[32];
-	mm_segment_t fs;
 	size_t s, read_len = 0, is_cmd_support = 0;
 	printk("\n*** %s, %s ***\n\n", __func__, stacfgpath);
 	if (stacfgpath == NULL) {
@@ -178,10 +177,7 @@ void sta_cfg_set(char *stacfgpath)
 	do {
 		memset(cfg_cmd, '\0', sizeof(cfg_cmd));
 		memset(cfg_value, '\0', sizeof(cfg_value));
-		fs = get_fs();
-		set_fs(KERNEL_DS);
 		read_len = read_line(fp, buf, MAX_CHARS_PER_LINE);
-		set_fs(fs);
 		sscanf(buf, "%s = %s", cfg_cmd, cfg_value);
 		if (!ischar(cfg_cmd) || !ischar(cfg_value)) {
 			printk("ERORR invalid parameter: %s\n", buf);

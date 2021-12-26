@@ -52,10 +52,11 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #endif
+
 MODULE_AUTHOR("iComm Semiconductor Co., Ltd");
 MODULE_DESCRIPTION("Support for SSV6xxx wireless LAN cards.");
-MODULE_SUPPORTED_DEVICE("SSV6xxx 802.11n WLAN cards");
 MODULE_LICENSE("Dual BSD/GPL");
+
 #define WIFI_FIRMWARE_NAME "ssv6051-sw.bin"
 static const struct ieee80211_iface_limit ssv6xxx_p2p_limits[] = {
  {
