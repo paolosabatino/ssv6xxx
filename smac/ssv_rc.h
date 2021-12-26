@@ -31,7 +31,7 @@
 #define SSV_DRATE_IDX (2)
 #define SSV_CRATE_IDX (3)
 
-const u16 ssv6xxx_rc_rate_set[RC_TYPE_MAX][13] =
+static const u16 ssv6xxx_rc_rate_set[RC_TYPE_MAX][13] =
 {
     [RC_TYPE_B_ONLY] = { 4, 0, 1, 2, 3},
     [RC_TYPE_LEGACY_GB] = { 12, 0, 1, 2, 7, 8, 3, 9, 10, 11, 12, 13, 14 },
