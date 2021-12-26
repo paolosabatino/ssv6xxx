@@ -374,6 +374,21 @@ static struct ssv_rc_rate ssv_11bgn_rate_table[] =
                  .target_pf = 8
                 },
 };
+const u16 ssv6xxx_rc_rate_set[RC_TYPE_MAX][13] =
+{
+    [RC_TYPE_B_ONLY] = { 4, 0, 1, 2, 3},
+    [RC_TYPE_LEGACY_GB] = { 12, 0, 1, 2, 7, 8, 3, 9, 10, 11, 12, 13, 14 },
+#if 0
+    [RC_TYPE_SGI_20] = { 12, 0, 1, 2, 3, 23, 24, 25, 26, 27, 28, 29, 30 },
+    [RC_TYPE_LGI_20] = { 12, 0, 1, 2, 3, 15, 16, 17, 18, 19, 20, 21, 22 },
+#else
+    [RC_TYPE_SGI_20] = { 8, 23, 24, 25, 26, 27, 28, 29, 30 },
+    [RC_TYPE_LGI_20] = { 8, 15, 16, 17, 18, 19, 20, 21, 22 },
+#endif
+    [RC_TYPE_HT_SGI_20] = { 8, 23, 24, 25, 26, 27, 28, 29, 30 },
+    [RC_TYPE_HT_LGI_20] = { 8, 15, 16, 17, 18, 19, 20, 21, 22 },
+    [RC_TYPE_HT_GF] = { 8, 31, 32, 33, 34, 35, 36, 37, 38 },
+};
 static u32 ssv6xxx_rate_supported(struct ssv_sta_rc_info *rc_sta, u32 index)
 {
     return (rc_sta->rc_supp_rates & BIT(index));

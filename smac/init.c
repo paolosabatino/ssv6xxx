@@ -1588,6 +1588,7 @@ int ssv6xxx_dev_probe(struct platform_device *pdev)
     softc = hw->priv;
     softc->hw = hw;
     softc->dev = &pdev->dev;
+    //SET_IEEE80211_PERM_ADDR(hw, (const u8 *)&softc->sh->maddr[0]);
     ret = ssv6xxx_init_device(softc, pdev->name);
     if (ret) {
         dev_err(&pdev->dev, "Failed to initialize device\n");

@@ -31,22 +31,6 @@
 #define SSV_DRATE_IDX (2)
 #define SSV_CRATE_IDX (3)
 
-static const u16 ssv6xxx_rc_rate_set[RC_TYPE_MAX][13] =
-{
-    [RC_TYPE_B_ONLY] = { 4, 0, 1, 2, 3},
-    [RC_TYPE_LEGACY_GB] = { 12, 0, 1, 2, 7, 8, 3, 9, 10, 11, 12, 13, 14 },
-#if 0
-    [RC_TYPE_SGI_20] = { 12, 0, 1, 2, 3, 23, 24, 25, 26, 27, 28, 29, 30 },
-    [RC_TYPE_LGI_20] = { 12, 0, 1, 2, 3, 15, 16, 17, 18, 19, 20, 21, 22 },
-#else
-    [RC_TYPE_SGI_20] = { 8, 23, 24, 25, 26, 27, 28, 29, 30 },
-    [RC_TYPE_LGI_20] = { 8, 15, 16, 17, 18, 19, 20, 21, 22 },
-#endif
-    [RC_TYPE_HT_SGI_20] = { 8, 23, 24, 25, 26, 27, 28, 29, 30 },
-    [RC_TYPE_HT_LGI_20] = { 8, 15, 16, 17, 18, 19, 20, 21, 22 },
-    [RC_TYPE_HT_GF] = { 8, 31, 32, 33, 34, 35, 36, 37, 38 },
-};
-
 struct ssv_softc;
 struct ssv_rc_rate *ssv6xxx_rc_get_rate(int rc_index);
 void ssv6xxx_rc_hw_rate_idx(struct ssv_softc *sc,
