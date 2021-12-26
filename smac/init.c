@@ -235,7 +235,7 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 #ifdef CONFIG_SSV_SUPPORT_ANDROID
 #endif
     //hw->rate_control_algorithm = "ssv6xxx_rate_control";
-    hw->rate_control_algorithm = "minstrel";
+    hw->rate_control_algorithm = NULL; // NULL selects default
     ht_info = &sc->sbands[INDEX_80211_BAND_2GHZ].ht_cap;
     ampdu_db_log("sh->cfg.hw_caps = 0x%x\n", sh->cfg.hw_caps);
     if (sh->cfg.hw_caps & SSV6200_HW_CAP_HT) {
@@ -638,14 +638,15 @@ static int ssv6xxx_init_softc(struct ssv_softc *sc)
     skb_queue_head_init(&sc->rx_skb_q);
     sc->rx_task = kthread_run(ssv6xxx_rx_task, sc, "ssv6xxx_rx_task");
     ssv6xxx_preload_sw_cipher();
+    printk("Setting up timer\n");
     timer_setup(&sc->watchdog_timeout, ssv6200_watchdog_timeout, 0);
-    mod_timer(&sc->watchdog_timeout, jiffies + WATCHDOG_TIMEOUT);
     init_waitqueue_head(&sc->fw_wait_q);
 #ifdef CONFIG_SSV_RSSI
     INIT_LIST_HEAD(&rssi_res.rssi_list);
     rssi_res.rssi = 0;
 #endif
-    add_timer(&sc->watchdog_timeout);
+    mod_timer(&sc->watchdog_timeout, jiffies + WATCHDOG_TIMEOUT);
+    //add_timer(&sc->watchdog_timeout);
     //if(get_flash_info(sc) == 1)
     sc->is_sar_enabled = get_flash_info(sc);
     if (sc->is_sar_enabled)
