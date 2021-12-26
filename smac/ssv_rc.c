@@ -393,6 +393,16 @@ static u32 ssv6xxx_rate_supported(struct ssv_sta_rc_info *rc_sta, u32 index)
 {
     return (rc_sta->rc_supp_rates & BIT(index));
 }
+#if 1
+static u8 ssv6xxx_rate_lowest_index(struct ssv_sta_rc_info *rc_sta)
+{
+    int i;
+    for (i = 0; i < rc_sta->rc_num_rate; i++)
+        if (ssv6xxx_rate_supported(rc_sta, i))
+            return i;
+    return 0;
+}
+#endif
 #ifdef DISABLE_RATE_CONTROL_SAMPLE
 static u8 ssv6xxx_rate_highest_index(struct ssv_sta_rc_info *rc_sta)
 {
@@ -924,6 +934,303 @@ void ssv6xxx_sample_work(struct work_struct *work)
     }
     sc->rc_sample_sechedule = 0;
 }
+static void ssv6xxx_tx_status(void *priv, struct ieee80211_supported_band *sband,
+                  struct ieee80211_sta *sta, void *priv_sta,
+                  struct sk_buff *skb)
+{
+    struct ssv_softc *sc;
+    struct ieee80211_hdr *hdr;
+    __le16 fc;
+    hdr = (struct ieee80211_hdr *)skb->data;
+    fc = hdr->frame_control;
+    if (!priv_sta || !ieee80211_is_data_qos(fc))
+        return;
+    sc = (struct ssv_softc *)priv;
+    if ( conf_is_ht(&sc->hw->conf)
+        && (!(skb->protocol == cpu_to_be16(ETH_P_PAE))))
+    {
+        if (skb_get_queue_mapping(skb) != IEEE80211_AC_VO)
+            ssv6200_ampdu_tx_update_state(priv, sta, skb);
+    }
+    return;
+}
+#if 1
+static void rateControlGetRate(u8 rateIndex, char * pointer)
+{
+    switch(rateIndex)
+    {
+        case 0:
+            sprintf(pointer, "1Mbps");
+            return;
+        case 1:
+        case 4:
+            sprintf(pointer, "2Mbps");
+            return;
+        case 2:
+        case 5:
+            sprintf(pointer, "5.5Mbps");
+            return;
+        case 3:
+        case 6:
+            sprintf(pointer, "11Mbps");
+            return;
+        case 7:
+            sprintf(pointer, "6Mbps");
+            return;
+        case 8:
+            sprintf(pointer, "9Mbps");
+            return;
+        case 9:
+            sprintf(pointer, "12Mbps");
+            return;
+        case 10:
+            sprintf(pointer, "18Mbps");
+            return;
+        case 11:
+            sprintf(pointer, "24Mbps");
+            return;
+        case 12:
+            sprintf(pointer, "36Mbps");
+            return;
+        case 13:
+            sprintf(pointer, "48Mbps");
+            return;
+        case 14:
+            sprintf(pointer, "54Mbps");
+            return;
+        case 15:
+        case 31:
+            sprintf(pointer, "MCS0-l");
+            return;
+        case 16:
+        case 32:
+            sprintf(pointer, "MCS1-l");
+            return;
+        case 17:
+        case 33:
+            sprintf(pointer, "MCS2-l");
+            return;
+        case 18:
+        case 34:
+            sprintf(pointer, "MCS3-l");
+            return;
+        case 19:
+        case 35:
+            sprintf(pointer, "MCS4-l");
+            return;
+        case 20:
+        case 36:
+            sprintf(pointer, "MCS5-l");
+            return;
+        case 21:
+        case 37:
+            sprintf(pointer, "MCS6-l");
+            return;
+        case 22:
+        case 38:
+            sprintf(pointer, "MCS7-l");
+            return;
+        case 23:
+            sprintf(pointer, "MCS0-s");
+            return;
+        case 24:
+            sprintf(pointer, "MCS1-s");
+            return;
+        case 25:
+            sprintf(pointer, "MCS2-s");
+            return;
+        case 26:
+            sprintf(pointer, "MCS3-s");
+            return;
+        case 27:
+            sprintf(pointer, "MCS4-s");
+            return;
+        case 28:
+            sprintf(pointer, "MCS5-s");
+            return;
+        case 29:
+            sprintf(pointer, "MCS6-s");
+            return;
+        case 30:
+            sprintf(pointer, "MCS7-s");
+            return;
+        default:
+            sprintf(pointer, "Unknow");
+            return;
+    };
+}
+#endif
+static void ssv6xxx_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
+                 struct ieee80211_tx_rate_control *txrc)
+{
+    struct ssv_softc *sc=priv;
+    struct ssv_rate_ctrl *ssv_rc=sc->rc;
+    struct ssv_sta_rc_info *rc_sta=priv_sta;
+    struct sk_buff *skb = txrc->skb;
+    struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(skb);
+    struct ieee80211_tx_rate *rates = tx_info->control.rates;
+    struct rc_pid_sta_info *spinfo=&rc_sta->spinfo;
+    struct ssv_rc_rate *rc_rate = NULL;
+    struct ssv_sta_priv_data *ssv_sta_priv;
+    int rateidx = 99;
+    #if 0
+    if ( (tx_info->control.vif != NULL)
+        && (tx_info->control.vif->p2p))
+    {
+        tx_info->flags |= IEEE80211_TX_CTL_NO_CCK_RATE;
+    }
+    #endif
+    /*
+    if (rate_control_send_low(sta, priv_sta, txrc))
+    {
+        int i = 0;
+        int total_rates = (sizeof(ssv_11bgn_rate_table) / sizeof(ssv_11bgn_rate_table[0]));
+#if 1
+        if ((txrc->rate_idx_mask & (1 << rates[0].idx)) == 0)
+        {
+            u32 rate_idx = rates[0].idx + 1;
+            u32 rate_idx_mask = txrc->rate_idx_mask >> rate_idx;
+            while (rate_idx_mask && (rate_idx_mask & 1) == 0)
+            {
+                rate_idx_mask >>= 1;
+                rate_idx++;
+            }
+            if (rate_idx_mask)
+                rates[0].idx = rate_idx;
+            else
+            {
+                WARN_ON(rate_idx_mask == 0);
+            }
+        }
+#endif
+        for (i = 0; i < total_rates; i++)
+        {
+            if (rates[0].idx == ssv_11bgn_rate_table[i].dot11_rate_idx)
+            {
+                break;
+            }
+        }
+        if (i < total_rates)
+            rc_rate = &ssv_rc->rc_table[i];
+        else
+        {
+            WARN_ON("Failed to find matching low rate.");
+        }
+    }*/
+    if (rc_rate == NULL) {
+        if (conf_is_ht(&sc->hw->conf) &&
+                (sta->ht_cap.cap & IEEE80211_HT_CAP_LDPC_CODING))
+            tx_info->flags |= IEEE80211_TX_CTL_LDPC;
+        if (conf_is_ht(&sc->hw->conf) &&
+                (sta->ht_cap.cap & IEEE80211_HT_CAP_TX_STBC))
+            tx_info->flags |= (1 << IEEE80211_TX_CTL_STBC_SHIFT);
+        if (sc->sc_flags & SC_OP_FIXED_RATE) {
+            rateidx = sc->max_rate_idx;
+        }
+        else {
+            if (rc_sta->rc_valid == false) {
+                rateidx = 0;
+            }
+            else {
+                if ((rc_sta->rc_wsid >= SSV_RC_MAX_HARDWARE_SUPPORT) || (rc_sta->rc_wsid < 0))
+                {
+                    ssv_sta_priv = (struct ssv_sta_priv_data *)sta->drv_priv;
+                    {
+                        if ((rc_sta->ht_rc_type >= RC_TYPE_HT_SGI_20) &&
+                            (ssv_sta_priv->rx_data_rate < SSV62XX_RATE_MCS_INDEX))
+                        {
+                            rateidx = rc_sta->pinfo.rinfo[spinfo->txrate_idx].rc_index;
+                            #if 0
+                            printk("RC %d rx %d tx %d\n", ssv_sta_priv->sta_idx,
+                                   ssv_sta_priv->rx_data_rate, rateidx);
+                            #endif
+                        }
+                        else
+                        {
+                            rateidx = ssv_sta_priv->rx_data_rate;
+                        }
+                    }
+                }
+                else
+                {
+                    if (rc_sta->is_ht)
+                    {
+#ifdef DISABLE_RATE_CONTROL_SAMPLE
+                        rateidx = rc_sta->ht.groups.rates[MCS_GROUP_RATES-1].rc_index;
+#else
+                        rateidx = rc_sta->pinfo.rinfo[spinfo->txrate_idx].rc_index;
+#endif
+                    }
+                    else
+                    {
+#if 0
+                        if (spinfo->monitoring && spinfo->probe_cnt > 0) {
+                            rateidx = rc_sta->pinfo.rinfo[spinfo->tmp_rate_idx].rc_index;
+                            spinfo->probe_cnt--;
+                        }
+                        else
+#endif
+                        {
+                            BUG_ON(spinfo->txrate_idx >= rc_sta->rc_num_rate);
+                            rateidx = rc_sta->pinfo.rinfo[spinfo->txrate_idx].rc_index;
+                        }
+                        if(rateidx<4)
+                        {
+                            if(rateidx)
+                            {
+                                if ((sc->sc_flags & SC_OP_SHORT_PREAMBLE)||(txrc->short_preamble))
+                                {
+                                    rateidx += 3;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        rc_rate = &ssv_rc->rc_table[rateidx];
+#if 1
+        if (spinfo->real_hw_index != rc_rate->hw_rate_idx)
+        {
+            char string[24];
+            rateControlGetRate(rc_rate->hw_rate_idx,string);
+        }
+#endif
+  spinfo->real_hw_index = rc_rate->hw_rate_idx;
+        rates[0].count = 4;
+        rates[0].idx = rc_rate->dot11_rate_idx;
+        tx_info->control.rts_cts_rate_idx =
+            ssv_rc->rc_table[rc_rate->ctrl_rate_idx].dot11_rate_idx;
+        if (rc_rate->rc_flags & RC_FLAG_SHORT_PREAMBLE)
+            rates[0].flags |= IEEE80211_TX_RC_USE_SHORT_PREAMBLE;
+        if (rc_rate->rc_flags & RC_FLAG_HT) {
+            rates[0].flags |= IEEE80211_TX_RC_MCS;
+            if (rc_rate->rc_flags & RC_FLAG_HT_SGI)
+                rates[0].flags |= IEEE80211_TX_RC_SHORT_GI;
+            if (rc_rate->rc_flags & RC_FLAG_HT_GF)
+                rates[0].flags |= IEEE80211_TX_RC_GREEN_FIELD;
+        }
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0)
+        if (txrc->rts)
+        {
+            rates[0].flags |= IEEE80211_TX_RC_USE_RTS_CTS;
+        }
+        if ((tx_info->control.vif &&
+            tx_info->control.vif->bss_conf.use_cts_prot) &&
+            (rc_rate->phy_type==WLAN_RC_PHY_OFDM ||
+            rc_rate->phy_type>WLAN_RC_PHY_OFDM))
+        {
+            rates[0].flags |= IEEE80211_TX_RC_USE_CTS_PROTECT;
+            tx_info->control.rts_cts_rate_idx = 1;
+        }
+#endif
+    }
+    rates[1].count = 0;
+    rates[1].idx = -1;
+    rates[SSV_DRATE_IDX].count = rc_rate->hw_rate_idx;
+ rc_rate = &ssv_rc->rc_table[rc_rate->ctrl_rate_idx];
+ rates[SSV_CRATE_IDX].count = rc_rate->hw_rate_idx;
+}
 int pide_frame_duration(size_t len,
                  int rate, int short_preamble, int flags)
 {
@@ -943,6 +1250,258 @@ int pide_frame_duration(size_t len,
     }
     return dur;
 }
+static void ssv62xx_rc_caps(struct ssv_sta_rc_info *rc_sta)
+{
+    struct rc_pid_sta_info *spinfo;
+    struct rc_pid_info *pinfo;
+    struct rc_pid_rateinfo *rinfo;
+    int i;
+    spinfo = &rc_sta->spinfo;
+    pinfo = &rc_sta->pinfo;
+    memset(spinfo, 0, sizeof(struct rc_pid_sta_info));
+    memset(pinfo, 0, sizeof(struct rc_pid_info));
+    rinfo = rc_sta->pinfo.rinfo;
+    for(i=0; i<rc_sta->rc_num_rate; i++) {
+        rinfo[i].rc_index = ssv6xxx_rc_rate_set[rc_sta->rc_type][i+1];
+        rinfo[i].diff = i * RC_PID_NORM_OFFSET;
+        rinfo[i].index = (u16)i;
+        rinfo[i].perfect_tx_time = TDIFS + (TSLOT * 15 >> 1) + pide_frame_duration(1530,
+            ssv_11bgn_rate_table[rinfo[i].rc_index].rate_kbps/100, 1,ssv_11bgn_rate_table[rinfo[i].rc_index].phy_type) +
+            pide_frame_duration(10, ssv_11bgn_rate_table[rinfo[i].rc_index].rate_kbps/100, 1,ssv_11bgn_rate_table[rinfo[i].rc_index].phy_type);
+#if 1
+        printk("[RC]Init perfect_tx_time[%d][%d]\n",i,rinfo[i].perfect_tx_time);
+#endif
+        rinfo[i].throughput = 0;
+    }
+    if(rc_sta->is_ht)
+    {
+        if(ssv6xxx_rc_rate_set[rc_sta->ht_rc_type][0] == 12)
+            spinfo->txrate_idx = 4;
+        else
+            spinfo->txrate_idx = 0;
+    }
+    else
+    {
+        spinfo->txrate_idx = ssv6xxx_rate_lowest_index(rc_sta);
+#ifdef DISABLE_RATE_CONTROL_SAMPLE
+        spinfo->txrate_idx = ssv6xxx_rate_highest_index(rc_sta);
+#endif
+    }
+    spinfo->real_hw_index = 0;
+    spinfo->probe_cnt = MAXPROBES;
+    spinfo->tmp_rate_idx = spinfo->txrate_idx;
+    spinfo->oldrate = spinfo->txrate_idx;
+    spinfo->last_sample = jiffies;
+    spinfo->last_report = jiffies;
+}
+static void ssv6xxx_rate_update_rc_type(void *priv, struct ieee80211_supported_band *sband,
+                  struct ieee80211_sta *sta, void *priv_sta)
+{
+    struct ssv_softc *sc=priv;
+    struct ssv_hw *sh=sc->sh;
+    struct ssv_sta_rc_info *rc_sta=priv_sta;
+    int i;
+    u32 ht_supp_rates = 0;
+    BUG_ON(rc_sta->rc_valid == false);
+    printk("[I] %s(): \n", __FUNCTION__);
+    rc_sta->ht_supp_rates = 0;
+    rc_sta->rc_supp_rates = 0;
+    rc_sta->is_ht = 0;
+#ifndef CONFIG_CH14_SUPPORT_GN_MODE
+    if(sc->cur_channel->hw_value == 14)
+    {
+        printk("[RC init ]Channel 14 support\n");
+        if((sta->supp_rates[sband->band] & (~0xfL)) == 0x0)
+        {
+            printk("[RC init ]B only mode\n");
+            rc_sta->rc_type = RC_TYPE_B_ONLY;
+        }
+        else
+        {
+            printk("[RC init ]GB mode\n");
+            rc_sta->rc_type = RC_TYPE_LEGACY_GB;
+        }
+    }
+    else
+#endif
+    if (sta->ht_cap.ht_supported == true) {
+        printk("[RC init ]HT support wsid\n");
+        for (i = 0; i < SSV_HT_RATE_MAX; i++) {
+            if (sta->ht_cap.mcs.rx_mask[i/MCS_GROUP_RATES] & (1<<(i%MCS_GROUP_RATES)))
+                ht_supp_rates |= BIT(i);
+        }
+        rc_sta->ht_supp_rates = ht_supp_rates;
+        if (sta->ht_cap.cap & IEEE80211_HT_CAP_GRN_FLD)
+        {
+            rc_sta->rc_type = RC_TYPE_HT_GF;
+            rc_sta->ht_rc_type = RC_TYPE_HT_GF;
+        }
+        else if (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_20)
+        {
+            rc_sta->rc_type = RC_TYPE_SGI_20;
+            rc_sta->ht_rc_type = RC_TYPE_HT_SGI_20;
+        }
+        else
+        {
+            rc_sta->rc_type = RC_TYPE_LGI_20;
+            rc_sta->ht_rc_type = RC_TYPE_HT_LGI_20;
+        }
+    }
+    else
+    {
+        if((sta->supp_rates[sband->band] & (~0xfL)) == 0x0){
+            rc_sta->rc_type = RC_TYPE_B_ONLY;
+            printk("[RC init ]B only mode\n");
+        }
+        else{
+            rc_sta->rc_type = RC_TYPE_LEGACY_GB;
+            printk("[RC init ]legacy G mode\n");
+        }
+    }
+#ifdef CONFIG_SSV_DPD
+#ifdef CONFIG_SSV_CABRIO_E
+    if(rc_sta->rc_type == RC_TYPE_B_ONLY)
+    {
+        SMAC_REG_WRITE(sh, ADR_TX_FE_REGISTER, 0x3D3E84FE);
+        SMAC_REG_WRITE(sh, ADR_RX_FE_REGISTER_1, 0x1457D79);
+        SMAC_REG_WRITE(sh, ADR_DPD_CONTROL, 0x0);
+    }
+    else
+    {
+        SMAC_REG_WRITE(sh, ADR_TX_FE_REGISTER, 0x3CBE84FE);
+        SMAC_REG_WRITE(sh, ADR_RX_FE_REGISTER_1, 0x4507F9);
+        SMAC_REG_WRITE(sh, ADR_DPD_CONTROL, 0x3);
+    }
+#endif
+#endif
+    if((rc_sta->rc_type != RC_TYPE_B_ONLY) && (rc_sta->rc_type != RC_TYPE_LEGACY_GB))
+    {
+        if ((sta->ht_cap.ht_supported) && (sh->cfg.hw_caps & SSV6200_HW_CAP_AMPDU_TX))
+        {
+            rc_sta->is_ht = 1;
+            ssv62xx_ht_rc_caps(ssv6xxx_rc_rate_set, rc_sta);
+        }
+    }
+    {
+        rc_sta->rc_num_rate = (u8)ssv6xxx_rc_rate_set[rc_sta->rc_type][0];
+        if((rc_sta->rc_type == RC_TYPE_HT_GF) ||
+            (rc_sta->rc_type == RC_TYPE_LGI_20) || (rc_sta->rc_type == RC_TYPE_SGI_20))
+        {
+            if(rc_sta->rc_num_rate == 12)
+            {
+                rc_sta->rc_supp_rates = sta->supp_rates[sband->band] & 0xfL;
+                rc_sta->rc_supp_rates |= (ht_supp_rates << 4);
+            }
+            else
+                rc_sta->rc_supp_rates = ht_supp_rates;
+        }
+        else if(rc_sta->rc_type == RC_TYPE_LEGACY_GB)
+            rc_sta->rc_supp_rates = sta->supp_rates[sband->band];
+        else if(rc_sta->rc_type == RC_TYPE_B_ONLY)
+            rc_sta->rc_supp_rates = sta->supp_rates[sband->band] & 0xfL;
+        ssv62xx_rc_caps(rc_sta);
+    }
+}
+#if LINUX_VERSION_CODE > 0x030500
+static void ssv6xxx_rate_update(void *priv, struct ieee80211_supported_band *sband,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
+                            struct cfg80211_chan_def *chandef,
+#endif
+                            struct ieee80211_sta *sta, void *priv_sta,
+                            u32 changed)
+#else
+static void ssv6xxx_rate_update(void *priv, struct ieee80211_supported_band *sband,
+                            struct ieee80211_sta *sta, void *priv_sta,
+                            u32 changed, enum nl80211_channel_type oper_chan_type)
+#endif
+{
+    printk("%s: changed=%d\n",__FUNCTION__,changed);
+    return;
+}
+static void ssv6xxx_rate_init(void *priv, struct ieee80211_supported_band *sband,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
+                  struct cfg80211_chan_def *chandef,
+#endif
+                  struct ieee80211_sta *sta, void *priv_sta)
+{
+    ssv6xxx_rate_update_rc_type(priv, sband, sta, priv_sta);
+}
+static void *ssv6xxx_rate_alloc_sta(void *priv, struct ieee80211_sta *sta, gfp_t gfp)
+{
+    struct ssv_sta_priv_data *sta_priv = (struct ssv_sta_priv_data *)sta->drv_priv;
+#ifndef RC_STA_DIRECT_MAP
+    struct ssv_softc *sc = priv;
+    struct ssv_rate_ctrl *ssv_rc = sc->rc;
+    int s;
+    sta_priv = (struct ssv_sta_priv_data *)sta->drv_priv;
+    for(s=0; s<SSV_RC_MAX_STA; s++) {
+        if (ssv_rc->sta_rc_info[s].rc_valid == false) {
+            printk("%s(): use index %d\n", __FUNCTION__, s);
+            memset(&ssv_rc->sta_rc_info[s], 0, sizeof(struct ssv_sta_rc_info));
+            ssv_rc->sta_rc_info[s].rc_valid = true;
+            ssv_rc->sta_rc_info[s].rc_wsid = -1;
+            sta_priv->rc_idx = s;
+            return &ssv_rc->sta_rc_info[s];
+        }
+    }
+    return NULL;
+#else
+    sta_priv->rc_idx = (-1);
+    return sta_priv;
+#endif
+}
+static void ssv6xxx_rate_free_sta(void *priv, struct ieee80211_sta *sta,
+                              void *priv_sta)
+{
+    struct ssv_sta_rc_info *rc_sta=priv_sta;
+    rc_sta->rc_valid = false;
+}
+static void *ssv6xxx_rate_alloc(struct ieee80211_hw *hw)
+{
+    struct ssv_softc *sc=hw->priv;
+    struct ssv_rate_ctrl *ssv_rc;
+    sc->rc = kzalloc(sizeof(struct ssv_rate_ctrl), GFP_KERNEL);
+    if (!sc->rc) {
+        printk("%s(): Unable to allocate RC structure !\n",
+            __FUNCTION__);
+        return NULL;
+    }
+    memset(sc->rc, 0, sizeof(struct ssv_rate_ctrl));
+    ssv_rc = (struct ssv_rate_ctrl *)sc->rc;
+    ssv_rc->rc_table = ssv_11bgn_rate_table;
+    skb_queue_head_init(&sc->rc_report_queue);
+    INIT_WORK(&sc->rc_sample_work,ssv6xxx_sample_work);
+    sc->rc_sample_workqueue = create_workqueue("ssv6xxx_rc_sample");
+    sc->rc_sample_sechedule = 0;
+    return hw->priv;
+}
+static void ssv6xxx_rate_free(void *priv)
+{
+    struct ssv_softc *sc=priv;
+    if (sc->rc) {
+        kfree(sc->rc);
+        sc->rc = NULL;
+    }
+    sc->rc_sample_sechedule = 0;
+    cancel_work_sync(&sc->rc_sample_work);
+    flush_workqueue(sc->rc_sample_workqueue);
+    destroy_workqueue(sc->rc_sample_workqueue);
+}
+static struct rate_control_ops ssv_rate_ops =
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
+    .module = NULL,
+#endif
+    .name = "ssv6xxx_rate_control",
+    .tx_status = ssv6xxx_tx_status,
+    .get_rate = ssv6xxx_get_rate,
+    .rate_init = ssv6xxx_rate_init,
+    .rate_update = ssv6xxx_rate_update,
+    .alloc = ssv6xxx_rate_alloc,
+    .free = ssv6xxx_rate_free,
+    .alloc_sta = ssv6xxx_rate_alloc_sta,
+    .free_sta = ssv6xxx_rate_free_sta,
+};
 void ssv6xxx_rc_mac8011_rate_idx(struct ssv_softc *sc,
             int hw_rate_idx, struct ieee80211_rx_status *rxs)
 {
@@ -1142,6 +1701,14 @@ void ssv6xxx_rc_update_basic_rate(struct ssv_softc *sc, u32 basic_rates)
         if(i)
             ssv6xxx_rc_update_bmode_ctrl_rate(sc, i+3, rate_idx);
     }
+}
+int ssv6xxx_rate_control_register(void)
+{
+    return ieee80211_rate_control_register(&ssv_rate_ops);
+}
+void ssv6xxx_rate_control_unregister(void)
+{
+    ieee80211_rate_control_unregister(&ssv_rate_ops);
 }
 void ssv6xxx_rc_rx_data_handler(struct ieee80211_hw *hw, struct sk_buff *skb, u32 rate_index)
 {
