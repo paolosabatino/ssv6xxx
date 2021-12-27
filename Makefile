@@ -49,7 +49,6 @@ INST_DIR = /lib/modules/$(KVERS)/misc
 
 endif
 
-include $(KBUILD_TOP)/ssv6051.cfg
 include $(KBUILD_TOP)/platform-config.mak
 
 EXTRA_CFLAGS := -I$(KBUILD_TOP) -I$(KBUILD_TOP)/include #-Wno-error=missing-attributes
@@ -74,13 +73,6 @@ OBJS := ssvdevice/ssvdevice.c \
 
 ifeq ($(findstring -DCONFIG_SSV_SMARTLINK, $(ccflags-y)), -DCONFIG_SSV_SMARTLINK)
 OBJS += smac/smartlink.c
-endif
-
-ifeq ($(findstring -DCONFIG_SSV_SUPPORT_AES_ASM, $(ccflags-y)), -DCONFIG_SSV_SUPPORT_AES_ASM)
-OBJS += crypto/aes_glue.c
-OBJS += crypto/sha1_glue.c
-ASMS := crypto/aes-armv4.S
-ASMS += crypto/sha1-armv4-large.S
 endif
 
 $(KMODULE_NAME)-y += $(ASMS:.S=.o)

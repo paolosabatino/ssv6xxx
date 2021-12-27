@@ -36,13 +36,6 @@ extern int ssvdevice_init(void);
 extern void ssvdevice_exit(void);
 extern int ssv6xxx_get_dev_status(void);
 
-#ifdef CONFIG_SSV_SUPPORT_AES_ASM
-extern int aes_init(void);
-extern void aes_fini(void);
-extern int sha1_mod_init(void);
-extern void sha1_mod_fini(void);
-#endif
-
 static __init int ssv_init_module(void)
 {
 	int ret = 0;

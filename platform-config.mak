@@ -23,9 +23,6 @@ ccflags-y += -DCONFIG_SSV_CABRIO_E
 
 ccflags-y += -DCONFIG_SSV6200_CLI_ENABLE
 
-#ccflags-y += -DCONFIG_SSV_BUILD_AS_ONE_KO
-
-
 #PADPD
 #ccflags-y += -DCONFIG_SSV_DPD
 
@@ -34,6 +31,15 @@ ccflags-y += -DCONFIG_SSV6200_CLI_ENABLE
 
 #SDIO
 ccflags-y += -DCONFIG_SSV_TX_LOWTHRESHOLD
+
+ccflags-y += -DCONFIG_FW_ALIGNMENT_CHECK
+ccflags-y += -DCONFIG_PLATFORM_SDIO_OUTPUT_TIMING=3
+ccflags-y += -DCONFIG_PLATFORM_SDIO_BLOCK_SIZE=128
+#ccflags-y += -DMULTI_THREAD_ENCRYPT
+#ccflags-y += -DKTHREAD_BIND
+#ccflags-y += -DROCKCHIP_WIFI_AUTO_SUPPORT
+ccflags-y += -DCONFIG_SSV_RSSI
+ccflags-y += -DCONFIG_SSV_VENDOR_EXT_SUPPORT
 
 ############################################################
 # Rate control update for MPDU.
@@ -68,20 +74,11 @@ ccflags-y += -DENABLE_INCREMENTAL_AGGREGATION
 # Generic decision table applicable to both AP and STA modes.
 ccflags-y += -DUSE_GENERIC_DECI_TBL
 
-# Use crypto in SSV driver.
-#ccflags-y += -DUSE_LOCAL_CRYPTO
-#ccflags-y += -DUSE_LOCAL_WEP_CRYPTO
-#ccflags-y += -DUSE_LOCAL_TKIP_CRYPTO
-#ccflags-y += -DUSE_LOCAL_CCMP_CRYPTO
-#ccflags-y += -DUSE_LOCAL_SMS4_CRYPTO
-
 #ccflags-y += -DCONFIG_SSV_WAPI
 
 ccflags-y += -DFW_WSID_WATCH_LIST
 #ccflags-y += -DUSE_BATCH_RX
 #ccflags-y += -DCONFIG_IRQ_DEBUG_COUNT
-#ccflags-y += -DCONFIG_SSV_SUPPORT_AES_ASM
-
 
 ccflags-y += -DSSV6200_ECO
 #ccflags-y += -DENABLE_WAKE_IO_ISR_WHEN_HCI_ENQUEUE
