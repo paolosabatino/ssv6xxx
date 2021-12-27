@@ -828,14 +828,7 @@ static void ssv6200_ampdu_tx_state_stop_func(struct ssv_softc *sc,
 	u8 tid_no = skb_qos_ctl[0] & 0xf;
 	if ((sta->ht_cap.ht_supported == true)
 	    && (!!(sc->sh->cfg.hw_caps & SSV6200_HW_CAP_AMPDU_TX))) {
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,32)
-		ieee80211_start_tx_ba_session(sc->hw, (u8 *) (sta->addr),
-					      (u16) tid_no);
-#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,37)
-		ieee80211_start_tx_ba_session(sta, tid_no);
-#else
 		ieee80211_start_tx_ba_session(sta, tid_no, 0);
-#endif
 		ampdu_db_log("start ampdu_tx(rc) : tid_no = %d\n", tid_no);
 	}
 }

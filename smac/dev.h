@@ -19,14 +19,6 @@
 #include <linux/version.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
-/*
-#ifdef CONFIG_SSV_SUPPORT_ANDROID
-#include <linux/wakelock.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
-#endif
-*/
 #include <net/mac80211.h>
 #include "ampdu.h"
 #include "ssv_rc_common.h"
@@ -356,9 +348,7 @@ struct ssv_softc {
 	struct work_struct set_ampdu_rx_del_work;
 	bool isAssoc;
 	u16 channel_center_freq;
-//#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
 	bool bScanning;
-//#endif
 	int ps_status;
 	u16 ps_aid;
 	u16 tx_wait_q_woken;

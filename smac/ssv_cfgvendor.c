@@ -20,7 +20,7 @@
 
 #include "dev.h"
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) || defined(CONFIG_SSV_VENDOR_EXT_SUPPORT)
+#if (defined(CONFIG_SSV_VENDOR_EXT_SUPPORT)
 
 #include <linux/kernel.h>
 #include <linux/if_arp.h>
@@ -62,11 +62,7 @@ struct sk_buff *ssv_cfg80211_vendor_event_alloc(struct wiphy *wiphy, int len,
 {
 	struct sk_buff *skb;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0))
-	skb = cfg80211_vendor_event_alloc(wiphy, len, event_id, gfp);
-#else
 	skb = cfg80211_vendor_event_alloc(wiphy, NULL, len, event_id, gfp);
-#endif
 	return skb;
 }
 
@@ -1291,4 +1287,4 @@ int ssv_cfgvendor_detach(struct wiphy *wiphy)
 
 	return 0;
 }
-#endif				/* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) || defined(SSV_VENDOR_EXT_SUPPORT) */
+#endif				/* (defined(SSV_VENDOR_EXT_SUPPORT) */

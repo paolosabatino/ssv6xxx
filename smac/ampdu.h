@@ -29,9 +29,7 @@
 #define USE_AMPDU_TX_STATUS_ARRAY
 #define SSV_AMPDU_FLOW_CONTROL
 #define AMPDU_CHECK_SKB_SEQNO
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
 #define REPORT_TX_STATUS_DIRECTLY
-#endif
 #define SSV_AMPDU_aggr_num_max MAX_AGGR_NUM
 #define SSV_AMPDU_seq_num_max (4096)
 #define SSV_AMPDU_retry_counter_max (3)

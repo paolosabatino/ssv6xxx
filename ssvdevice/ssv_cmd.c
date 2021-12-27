@@ -16,11 +16,7 @@
 
 #include <linux/kernel.h>
 #include <linux/version.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
 #include <linux/export.h>
-#else
-#include <linux/module.h>
-#endif
 #include <linux/platform_device.h>
 #include <linux/string.h>
 #include <ssv6200_reg.h>

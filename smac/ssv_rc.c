@@ -1203,18 +1203,6 @@ static void ssv6xxx_get_rate(void *priv, struct ieee80211_sta *sta,
 			if (rc_rate->rc_flags & RC_FLAG_HT_GF)
 				rates[0].flags |= IEEE80211_TX_RC_GREEN_FIELD;
 		}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0)
-		if (txrc->rts) {
-			rates[0].flags |= IEEE80211_TX_RC_USE_RTS_CTS;
-		}
-		if ((tx_info->control.vif &&
-		     tx_info->control.vif->bss_conf.use_cts_prot) &&
-		    (rc_rate->phy_type == WLAN_RC_PHY_OFDM ||
-		     rc_rate->phy_type > WLAN_RC_PHY_OFDM)) {
-			rates[0].flags |= IEEE80211_TX_RC_USE_CTS_PROTECT;
-			tx_info->control.rts_cts_rate_idx = 1;
-		}
-#endif
 	}
 	rates[1].count = 0;
 	rates[1].idx = -1;
@@ -1392,9 +1380,7 @@ static void ssv6xxx_rate_update_rc_type(void *priv,
 
 static void ssv6xxx_rate_update(void *priv,
 				struct ieee80211_supported_band *sband,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
 				struct cfg80211_chan_def *chandef,
-#endif
 				struct ieee80211_sta *sta, void *priv_sta,
 				u32 changed)
 {
@@ -1404,9 +1390,7 @@ static void ssv6xxx_rate_update(void *priv,
 
 static void ssv6xxx_rate_init(void *priv,
 			      struct ieee80211_supported_band *sband,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
 			      struct cfg80211_chan_def *chandef,
-#endif
 			      struct ieee80211_sta *sta, void *priv_sta)
 {
 	ssv6xxx_rate_update_rc_type(priv, sband, sta, priv_sta);
@@ -1481,9 +1465,6 @@ static void ssv6xxx_rate_free(void *priv)
 }
 
 static struct rate_control_ops ssv_rate_ops = {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
-	.module = NULL,
-#endif
 	.name = "ssv6xxx_rate_control",
 	.tx_status = ssv6xxx_tx_status,
 	.get_rate = ssv6xxx_get_rate,
