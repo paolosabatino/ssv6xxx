@@ -43,10 +43,6 @@
 #include "ssv6xxx_debugfs.h"
 #endif
 
-MODULE_AUTHOR("iComm Semiconductor Co., Ltd");
-MODULE_DESCRIPTION("Support for SSV6xxx wireless LAN cards.");
-MODULE_LICENSE("Dual BSD/GPL");
-
 #define WIFI_FIRMWARE_NAME "ssv6051-sw.bin"
 static const struct ieee80211_iface_limit ssv6xxx_p2p_limits[] = {
 	{
@@ -186,7 +182,7 @@ int ssv6xxx_do_iq_calib(struct ssv_hw *sh, struct ssv6xxx_iqk_cfg *p_cfg)
 }
 
 #define HT_CAP_RX_STBC_ONE_STREAM 0x1
-#if defined(CONFIG_PM) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+#if defined(CONFIG_PM)
 static const struct wiphy_wowlan_support wowlan_support = {
 #ifdef SSV_WAKEUP_HOST
 	.flags = WIPHY_WOWLAN_ANY,
@@ -196,9 +192,7 @@ static const struct wiphy_wowlan_support wowlan_support = {
 	.n_patterns = 0,
 	.pattern_max_len = 0,
 	.pattern_min_len = 0,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	.max_pkt_offset = 0,
-#endif
 };
 #endif
 static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
@@ -206,27 +200,16 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 	struct ieee80211_hw *hw = sc->hw;
 	struct ssv_hw *sh = sc->sh;
 	struct ieee80211_sta_ht_cap *ht_info;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
-	hw->flags = IEEE80211_HW_SIGNAL_DBM;
-#else
 	ieee80211_hw_set(hw, SIGNAL_DBM);
-#endif
 	hw->rate_control_algorithm = "ssv6xxx_rate_control";
 	//hw->rate_control_algorithm = NULL; // NULL selects default
 	ht_info = &sc->sbands[INDEX_80211_BAND_2GHZ].ht_cap;
 	ampdu_db_log("sh->cfg.hw_caps = 0x%x\n", sh->cfg.hw_caps);
 	if (sh->cfg.hw_caps & SSV6200_HW_CAP_HT) {
 		if (sh->cfg.hw_caps & SSV6200_HW_CAP_AMPDU_RX) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
-			hw->flags |= IEEE80211_HW_AMPDU_AGGREGATION;
-			ampdu_db_log
-			    ("set IEEE80211_HW_AMPDU_AGGREGATION(0x%x)\n",
-			     ((hw->flags) & IEEE80211_HW_AMPDU_AGGREGATION));
-#else
 			ieee80211_hw_set(hw, AMPDU_AGGREGATION);
 			ampdu_db_log("set IEEE80211_HW_AMPDU_AGGREGATION(%d)\n",
 				     ieee80211_hw_check(hw, AMPDU_AGGREGATION));
-#endif
 		}
 		ht_info->cap = IEEE80211_HT_CAP_SM_PS;
 		if (sh->cfg.hw_caps & SSV6200_HW_CAP_GF) {
@@ -246,39 +229,25 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 		ht_info->ht_supported = true;
 	}
 	hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	if (sh->cfg.hw_caps & SSV6200_HW_CAP_P2P) {
 		hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_P2P_CLIENT);
 		hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_P2P_GO);
 		hw->wiphy->iface_combinations = ssv6xxx_iface_combinations_p2p;
 		hw->wiphy->n_iface_combinations =
 		    ARRAY_SIZE(ssv6xxx_iface_combinations_p2p);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0)
-		hw->wiphy->flags |= WIPHY_FLAG_ENFORCE_COMBINATIONS;
-#endif
 	}
-#endif
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3,5,0)
 	hw->wiphy->flags |= WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL;
-#endif
 	if (sh->cfg.hw_caps & SSV6200_HW_CAP_AP) {
 		hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_AP);
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3,1,0)
 		hw->wiphy->flags |= WIPHY_FLAG_AP_UAPSD;
-#endif
 	}
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 2, 0)
 	if (sh->cfg.hw_caps & SSV6200_HW_CAP_TDLS) {
 		hw->wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
 		hw->wiphy->flags |= WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
 		printk("TDLS function enabled in sta.cfg\n");
 	}
-#endif
 	hw->queues = 4;
 	hw->max_rates = 4;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0)
-	hw->channel_change_time = 5000;
-#endif
 	hw->max_listen_interval = 1;
 	hw->max_rate_tries = HW_MAX_RATE_TRIES;
 	hw->extra_tx_headroom = TXPB_OFFSET + AMPDU_DELIMITER_LEN;
@@ -290,7 +259,6 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 		hw->wiphy->bands[INDEX_80211_BAND_2GHZ] =
 		    &sc->sbands[INDEX_80211_BAND_2GHZ];
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	if (sh->cfg.hw_caps & SSV6200_HW_CAP_AMPDU_TX)
 #ifdef PREFER_RX
 		hw->max_rx_aggregation_subframes = 64;
@@ -300,7 +268,6 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 	else
 		hw->max_rx_aggregation_subframes = 12;
 	hw->max_tx_aggregation_subframes = 64;
-#endif
 	hw->sta_data_size = sizeof(struct ssv_sta_priv_data);
 	hw->vif_data_size = sizeof(struct ssv_vif_priv_data);
 	memcpy(sh->maddr[0].addr, &sh->cfg.maddr[0][0], ETH_ALEN);
@@ -320,15 +287,10 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 		if (hw->wiphy->n_addresses < 2)
 			hw->wiphy->n_addresses = 2;
 	}
-#if defined(CONFIG_PM) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0))
-	hw->wiphy->wowlan = wowlan_support;
-#else
+#if defined(CONFIG_PM)
 	hw->wiphy->wowlan = &wowlan_support;
 #endif
-#endif
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 14, 0)) || defined(CONFIG_SSV_VENDOR_EXT_SUPPORT)
 	{
 		int err = 0;
 		struct ssv_softc *softc = (struct ssv_softc *)hw->priv;
@@ -342,8 +304,6 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 			printk("Couldn not attach vendor commands (%d)\n", err);
 		}
 	}
-#endif				/* (LINUX_VERSION_CODE > KERNEL_VERSION(3, 14, 0)) || defined(WL_VENDOR_EXT_SUPPORT) */
-
 }
 
 void ssv6xxx_watchdog_restart_hw(struct ssv_softc *sc)
@@ -574,14 +534,9 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 	chip_id[12 + sizeof(u32)] = 0;
 	printk(KERN_INFO "CHIP ID: %s \n", chip_id);
 	if (sc->ps_status == PWRSV_ENABLE) {
-#ifdef CONFIG_SSV_HW_ENCRYPT_SW_DECRYPT
-		SMAC_REG_WRITE(sh, ADR_RX_FLOW_DATA,
-			       M_ENG_MACRX | (M_ENG_HWHCI << 4));
-#else
 		SMAC_REG_WRITE(sh, ADR_RX_FLOW_DATA,
 			       M_ENG_MACRX | (M_ENG_ENCRYPT_SEC << 4) |
 			       (M_ENG_HWHCI << 8));
-#endif
 		SMAC_REG_WRITE(sc->sh, ADR_RX_FLOW_MNG,
 			       M_ENG_MACRX | (M_ENG_HWHCI << 4));
 #if Enable_AMPDU_FW_Retry
@@ -743,13 +698,9 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 	SMAC_REG_WRITE(sh, ADR_TRAP_HW_ID, M_ENG_CPU);
 	SMAC_REG_WRITE(sh, ADR_WSID0, 0x00000000);
 	SMAC_REG_WRITE(sh, ADR_WSID1, 0x00000000);
-#ifdef CONFIG_SSV_HW_ENCRYPT_SW_DECRYPT
-	SMAC_REG_WRITE(sh, ADR_RX_FLOW_DATA, M_ENG_MACRX | (M_ENG_HWHCI << 4));
-#else
 	SMAC_REG_WRITE(sh, ADR_RX_FLOW_DATA,
 		       M_ENG_MACRX | (M_ENG_ENCRYPT_SEC << 4) | (M_ENG_HWHCI <<
 								 8));
-#endif
 #if defined(CONFIG_P2P_NOA) || defined(CONFIG_RX_MGMT_CHECK)
 	SMAC_REG_WRITE(sh, ADR_RX_FLOW_MNG,
 		       M_ENG_MACRX | (M_ENG_CPU << 4) | (M_ENG_HWHCI << 8));
@@ -1408,11 +1359,7 @@ static const struct platform_device_id ssv6xxx_id_table[] = {
 MODULE_DEVICE_TABLE(platform, ssv6xxx_id_table);
 static struct platform_driver ssv6xxx_driver = {
 	.probe = ssv6xxx_dev_probe,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-	.remove = __devexit_p(ssv6xxx_dev_remove),
-#else
 	.remove = ssv6xxx_dev_remove,
-#endif
 	.id_table = ssv6xxx_id_table,
 	.driver = {
 		   .name = "SSV WLAN driver",

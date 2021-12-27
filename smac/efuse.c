@@ -17,7 +17,7 @@
 #include <linux/etherdevice.h>
 #include <ssv6200.h>
 #include "efuse.h"
-mm_segment_t oldfs;
+
 struct file *openFile(char *path, int flag, int mode)
 {
 	struct file *fp = NULL;
