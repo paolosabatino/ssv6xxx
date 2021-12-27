@@ -39,9 +39,6 @@
 #include "ssv_cfgvendor.h"
 
 #include "linux_80211.h"
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-#include "linux_2_6_35.h"
-#endif
 #ifdef CONFIG_SSV6XXX_DEBUGFS
 #include "ssv6xxx_debugfs.h"
 #endif

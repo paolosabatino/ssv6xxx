@@ -33,9 +33,6 @@
 #include "ap.h"
 #include "init.h"
 #include "p2p.h"
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,2,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-#include "linux_3_0_0.h"
-#endif
 #ifdef CONFIG_SSV6XXX_DEBUGFS
 #include "ssv6xxx_debugfs.h"
 #endif
@@ -88,16 +85,10 @@ void _ssv6xxx_hexdump(const char *title, const u8 * buf, size_t len)
 
 void ssv6xxx_txbuf_free_skb(struct sk_buff *skb, void *args)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
 	struct ssv_softc *sc = (struct ssv_softc *)args;
-#endif
 	if (!skb)
 		return;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
 	ieee80211_free_txskb(sc->hw, skb);
-#else
-	dev_kfree_skb_any(skb);
-#endif
 }
 
 #define ADDRESS_OFFSET 16
@@ -541,16 +532,9 @@ static u32 ssv6xxx_set_frame_duration(struct ieee80211_tx_info *info,
 	is_ht40 = !!(tx_drate->flags & IEEE80211_TX_RC_40_MHZ_WIDTH);
 	is_ht = !!(tx_drate->flags & IEEE80211_TX_RC_MCS);
 	is_gf = !!(tx_drate->flags & IEEE80211_TX_RC_GREEN_FIELD);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	if ((info->control.short_preamble) ||
 	    (tx_drate->flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE))
 		ctrl_short_preamble = true;
-#else
-	if ((info->control.vif &&
-	     info->control.vif->bss_conf.use_short_preamble) ||
-	    (tx_drate->flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE))
-		ctrl_short_preamble = true;
-#endif
 #ifdef FW_RC_RETRY_DEBUG
 	printk("mcs = %d, data rate idx=%d\n", tx_drate->idx,
 	       tx_drate[3].count);
@@ -1013,7 +997,6 @@ static int _write_group_key_to_hw(struct ssv_softc *sc,
 	return ret;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 static enum SSV_CIPHER_E _prepare_key(struct ieee80211_key_conf *key)
 {
 	enum SSV_CIPHER_E cipher;
@@ -1029,13 +1012,9 @@ static enum SSV_CIPHER_E _prepare_key(struct ieee80211_key_conf *key)
 		cipher = SSV_CIPHER_TKIP;
 		break;
 	case WLAN_CIPHER_SUITE_CCMP:
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-		key->flags |= IEEE80211_KEY_FLAG_SW_MGMT;
-#else
 		key->flags |=
 		    (IEEE80211_KEY_FLAG_SW_MGMT_TX |
 		     IEEE80211_KEY_FLAG_RX_MGMT);
-#endif
 		cipher = SSV_CIPHER_CCMP;
 		break;
 	default:
@@ -1044,32 +1023,6 @@ static enum SSV_CIPHER_E _prepare_key(struct ieee80211_key_conf *key)
 	}
 	return cipher;
 }
-#else
-static enum SSV_CIPHER_E _prepare_key(struct ieee80211_key_conf *key)
-{
-	enum SSV_CIPHER_E cipher;
-	switch (key->alg) {
-	case ALG_WEP:
-		if (key->keylen == 5)
-			cipher = SSV_CIPHER_WEP40;
-		else
-			cipher = SSV_CIPHER_WEP104;
-		break;
-	case ALG_TKIP:
-		cipher = SSV_CIPHER_TKIP;
-		key->flags |= IEEE80211_KEY_FLAG_GENERATE_MMIC;
-		break;
-	case ALG_CCMP:
-		cipher = SSV_CIPHER_CCMP;
-		key->flags |= IEEE80211_KEY_FLAG_SW_MGMT;
-		break;
-	default:
-		cipher = SSV_CIPHER_INVALID;
-		break;
-	}
-	return cipher;
-}
-#endif
 int _set_key_wep(struct ssv_softc *sc, struct ssv_vif_priv_data *vif_priv,
 		 struct ssv_sta_priv_data *sta_priv, enum SSV_CIPHER_E cipher,
 		 struct ieee80211_key_conf *key)
@@ -1203,32 +1156,19 @@ static int _set_pairwise_key_tkip_ccmp(struct ssv_softc *sc,
 			ret = 0;
 		} else {
 			sta_priv->has_hw_encrypt = false;
-#ifdef USE_LOCAL_CCMP_CRYPTO
-			sta_priv->need_sw_encrypt = true;
-			sta_priv->use_mac80211_decrypt = false;
-			ret = 0;
-#else
 			sta_priv->need_sw_encrypt = false;
 			sta_priv->use_mac80211_decrypt = true;
 			ret = -EOPNOTSUPP;
-#endif
 		}
 	} else {
 		sta_priv->has_hw_encrypt = false;
 		sta_priv->has_hw_decrypt = false;
-#ifdef USE_LOCAL_CCMP_CRYPTO
-		sta_priv->need_sw_encrypt = true;
-		sta_priv->need_sw_decrypt = true;
-		sta_priv->use_mac80211_decrypt = false;
-		ret = 0;
-#else
 		dev_err(sc->dev, "STA %d MAC80211's %s cipher.\n",
 			sta_priv->sta_idx, cipher_name);
 		sta_priv->need_sw_encrypt = false;
 		sta_priv->need_sw_decrypt = false;
 		sta_priv->use_mac80211_decrypt = true;
 		ret = -EOPNOTSUPP;
-#endif
 	}
 	if (sta_priv->has_hw_encrypt || sta_priv->has_hw_decrypt) {
 		ssv6200_hw_set_pair_type(sc->sh, cipher);
@@ -1516,13 +1456,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
 					     &&
 					     SSV6XXX_USE_HW_DECRYPT(vif_priv)))
 					{
-#ifdef CONFIG_SSV_HW_ENCRYPT_SW_DECRYPT
-						SMAC_REG_WRITE(sc->sh,
-							       ADR_RX_FLOW_DATA,
-							       M_ENG_MACRX |
-							       (M_ENG_HWHCI <<
-								4));
-#else
 						SMAC_REG_WRITE(sc->sh,
 							       ADR_RX_FLOW_DATA,
 							       M_ENG_MACRX |
@@ -1530,7 +1463,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
 								<< 4) |
 							       (M_ENG_HWHCI <<
 								8));
-#endif
 						printk
 						    ("redirect Rx flow for disconnect\n");
 					}
@@ -1541,14 +1473,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
 						    &&
 						    SSV6XXX_USE_HW_DECRYPT
 						    (vif_priv)) {
-#ifdef CONFIG_SSV_HW_ENCRYPT_SW_DECRYPT
-							SMAC_REG_WRITE(sc->sh,
-								       ADR_RX_FLOW_DATA,
-								       M_ENG_MACRX
-								       |
-								       (M_ENG_HWHCI
-									<< 4));
-#else
 							SMAC_REG_WRITE(sc->sh,
 								       ADR_RX_FLOW_DATA,
 								       M_ENG_MACRX
@@ -1557,7 +1481,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
 									<< 4) |
 								       (M_ENG_HWHCI
 									<< 8));
-#endif
 							printk
 							    ("redirect Rx flow for disconnect\n");
 						}
@@ -1571,13 +1494,8 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
 					&&
 					(!SSV6XXX_USE_HW_DECRYPT
 					 (another_vif_priv)))) {
-#ifdef SSV_SUPPORT_HAL
-					HAL_SET_GROUP_CIPHER_TYPE(sc->sh,
-								  ME_NONE);
-#else
 					ssv6200_hw_set_group_type(sc->sh,
 								  ME_NONE);
-#endif
 				}
 			} else {
 				struct ssv_vif_info *vif_info =
@@ -1592,14 +1510,8 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
 							     ssv_sta_priv_data,
 							     list);
 					if (sta_priv == first_sta_priv) {
-#ifdef SSV_SUPPORT_HAL
-						HAL_SET_PAIRWISE_CIPHER_TYPE
-						    (sc->sh, ME_NONE,
-						     sta_info->hw_wsid);
-#else
 						ssv6200_hw_set_pair_type(sc->sh,
 									 ME_NONE);
-#endif
 					}
 				}
 				vif_priv->pair_cipher = ME_NONE;
@@ -1647,9 +1559,6 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
 		     (vif_priv->use_mac80211_decrypt == true),
 		     (vif_priv->is_security_valid == true));
 	}
-#ifdef CONFIG_SSV_SW_ENCRYPT_HW_DECRYPT
-	ret = -EOPNOTSUPP;
-#endif
 	if (vif_priv->force_sw_encrypt
 	    || (sta_info && (sta_info->hw_wsid != 1)
 		&& (sta_info->hw_wsid != 0))) {
@@ -1768,11 +1677,6 @@ void ssv6xxx_tx_rate_update(struct sk_buff *skb, void *args)
 	return;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
-#define RTS_CTS_PROTECT(_flg) \
-    ((_flg)&IEEE80211_TX_RC_USE_RTS_CTS)? 1: \
-    ((_flg)&IEEE80211_TX_RC_USE_CTS_PROTECT)? 2: 0
-#endif
 void ssv6xxx_update_txinfo(struct ssv_softc *sc, struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr;
@@ -1841,14 +1745,10 @@ void ssv6xxx_update_txinfo(struct ssv_softc *sc, struct sk_buff *skb)
 	tx_desc->hdr_offset = TXPB_OFFSET;
 	tx_desc->hdr_len = ssv6xxx_frame_hdrlen(hdr, tx_desc->ht);
 	tx_desc->payload_offset = tx_desc->hdr_offset + tx_desc->hdr_len;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	if (info->control.use_rts)
 		tx_desc->do_rts_cts = IEEE80211_TX_RC_USE_RTS_CTS;
 	else if (info->control.use_cts_prot)
 		tx_desc->do_rts_cts = IEEE80211_TX_RC_USE_CTS_PROTECT;
-#else
-	tx_desc->do_rts_cts = RTS_CTS_PROTECT(tx_drate->flags);
-#endif
 	if (tx_desc->do_rts_cts == IEEE80211_TX_RC_USE_CTS_PROTECT)
 		tx_desc->do_rts_cts = IEEE80211_TX_RC_USE_RTS_CTS;
 	if (tx_desc->do_rts_cts == IEEE80211_TX_RC_USE_CTS_PROTECT) {
@@ -2071,24 +1971,13 @@ static void _ssv6xxx_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	}
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-static int ssv6200_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-static void ssv6200_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
-#else
 static void ssv6200_tx(struct ieee80211_hw *hw,
 		       struct ieee80211_tx_control *control,
 		       struct sk_buff *skb)
-#endif
 {
 	struct ssv_softc *sc = (struct ssv_softc *)hw->priv;
 	struct SKB_info_st *skb_info = (struct SKB_info_st *)skb->head;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	skb_info->sta = info->control.sta;
-#else
 	skb_info->sta = control ? control->sta : NULL;
-#endif
 #ifdef CONFIG_DEBUG_SKB_TIMESTAMP
 	skb_info->timestamp = ktime_get();
 #endif
@@ -2102,9 +1991,6 @@ static void ssv6200_tx(struct ieee80211_hw *hw,
 		if (skb_queue_len(&sc->tx_skb_q) >= MAX_TX_Q_LEN)
 			ieee80211_stop_queues(sc->hw);
 	} while (0);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	return NETDEV_TX_OK;
-#endif
 }
 
 int ssv6xxx_tx_task(void *data)
@@ -2302,11 +2188,7 @@ static int ssv6200_start(struct ieee80211_hw *hw)
 				      &sh->p_ch_cfg[i].ch1_12_value);
 		}
 	}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-	chan = hw->conf.channel;
-#else
 	chan = hw->conf.chandef.chan;
-#endif
 	sc->cur_channel = chan;
 	printk("%s(): current channel: %d,sc->ps_status=%d\n", __FUNCTION__,
 	       sc->cur_channel->hw_value, sc->ps_status);
@@ -2592,33 +2474,9 @@ static int ssv6200_config(struct ieee80211_hw *hw, u32 changed)
 			       sc->ps_aid);
 		}
 	}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	if (changed & IEEE80211_CONF_CHANGE_QOS) {
-		struct ieee80211_conf *conf = &hw->conf;
-		bool qos_active = !!(conf->flags & IEEE80211_CONF_QOS);
-		SMAC_REG_SET_BITS(sc->sh, ADR_GLBLE_SET,
-				  (qos_active << QOS_EN_SFT), QOS_EN_MSK);
-	}
-#endif
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
 		struct ieee80211_channel *chan;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-		chan = hw->conf.channel;
-#else
 		chan = hw->conf.chandef.chan;
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-		{
-			struct ieee80211_channel *curchan = hw->conf.channel;
-			if (sc->bScanning == true &&
-			    sc->channel_center_freq != curchan->center_freq
-			    && sc->isAssoc) {
-				hw->conf.flags |= IEEE80211_CONF_OFFCHANNEL;
-			} else {
-				hw->conf.flags &= ~IEEE80211_CONF_OFFCHANNEL;
-			}
-		}
-#endif
 #ifdef CONFIG_P2P_NOA
 		if (sc->p2p_noa.active_noa_vif) {
 			printk("NOA operating-active vif[%02x] skip scan\n",
@@ -2671,17 +2529,6 @@ static int ssv6200_config(struct ieee80211_hw *hw, u32 changed)
 	return ret;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
-#define SUPPORTED_FILTERS \
-    (FIF_PROMISC_IN_BSS | \
-    FIF_ALLMULTI | \
-    FIF_CONTROL | \
-    FIF_PSPOLL | \
-    FIF_OTHER_BSS | \
-    FIF_BCN_PRBRESP_PROMISC | \
-    FIF_PROBE_REQ | \
-    FIF_FCSFAIL)
-#else
 #define SUPPORTED_FILTERS \
     (FIF_ALLMULTI | \
     FIF_CONTROL | \
@@ -2690,7 +2537,6 @@ static int ssv6200_config(struct ieee80211_hw *hw, u32 changed)
     FIF_BCN_PRBRESP_PROMISC | \
     FIF_PROBE_REQ | \
     FIF_FCSFAIL)
-#endif
 static void ssv6200_config_filter(struct ieee80211_hw *hw,
 				  unsigned int changed_flags,
 				  unsigned int *total_flags, u64 multicast)
@@ -2795,11 +2641,7 @@ static void ssv6200_bss_info_changed(struct ieee80211_hw *hw,
 					       0x0);
 			} else {
 				struct ieee80211_channel *curchan;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-				curchan = hw->conf.channel;
-#else
 				curchan = hw->conf.chandef.chan;
-#endif
 				sc->channel_center_freq = curchan->center_freq;
 				printk(KERN_INFO "!!info->aid = %d\n",
 				       info->aid);
@@ -2820,9 +2662,7 @@ static void ssv6200_bss_info_changed(struct ieee80211_hw *hw,
 	}
 	if (vif->type == NL80211_IFTYPE_AP) {
 		if (changed & (BSS_CHANGED_BEACON
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
 			       | BSS_CHANGED_SSID
-#endif
 			       | BSS_CHANGED_BSSID | BSS_CHANGED_BASIC_RATES)) {
 #ifdef BROADCAST_DEBUG
 			printk("[A] ssv6200_bss_info_changed:beacon changed\n");
@@ -3031,14 +2871,9 @@ void ssv6200_rx_flow_check(struct ssv_sta_priv_data *sta_priv_dat,
 		if ((sta_info->s_flags == 0)
 		    || ((sta_info->s_flags && STA_FLAG_VALID)
 			&& (sta_priv->has_hw_decrypt))) {
-#ifdef CONFIG_SSV_HW_ENCRYPT_SW_DECRYPT
-			SMAC_REG_WRITE(sc->sh, ADR_RX_FLOW_DATA,
-				       M_ENG_MACRX | (M_ENG_HWHCI << 4));
-#else
 			SMAC_REG_WRITE(sc->sh, ADR_RX_FLOW_DATA,
 				       M_ENG_MACRX | (M_ENG_ENCRYPT_SEC << 4) |
 				       (M_ENG_HWHCI << 8));
-#endif
 			printk("redirect Rx flow for sta %d  disconnect\n",
 			       sta_priv_dat->sta_idx);
 		}
@@ -3068,8 +2903,6 @@ static int ssv6200_sta_remove(struct ieee80211_hw *hw,
 		   priv_vif->vif_idx);
 	ssv6200_rx_flow_check(sta_priv_dat, sc);
 	spin_lock_irqsave(&sc->ps_state_lock, flags);
-#ifdef CONFIG_SSV6XXX_DEBUGFS
-#endif
 	bit = BIT(sta_priv_dat->sta_idx);
 	priv_vif->sta_asleep_mask &= ~bit;
 	if (sta_info->hw_wsid != -1) {
@@ -3113,8 +2946,6 @@ static void ssv6200_sta_notify(struct ieee80211_hw *hw,
 	struct ssv_sta_info *sta_info;
 	u32 bit, prev;
 	unsigned long flags;
-#ifdef BROADCAST_DEBUG
-#endif
 	spin_lock_irqsave(&sc->ps_state_lock, flags);
 	if (sta_priv_dat != NULL) {
 		bit = BIT(sta_priv_dat->sta_idx);
@@ -3149,11 +2980,7 @@ static void ssv6200_sta_notify(struct ieee80211_hw *hw,
 	spin_unlock_irqrestore(&sc->ps_state_lock, flags);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,2,0)
-static u64 ssv6200_get_tsf(struct ieee80211_hw *hw)
-#else
 static u64 ssv6200_get_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
-#endif
 {
 	u64 time = jiffies * 1000 * 1000 / HZ;
 	//struct timeval tv;
@@ -3179,17 +3006,11 @@ static u64 ssv6200_get_systime_us(void)
 
 static u32 pre_11b_cca_control;
 static u32 pre_11b_cca_1;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 static void ssv6200_sw_scan_start(struct ieee80211_hw *hw,
 				  struct ieee80211_vif *vif,
 				  const u8 * mac_addr)
-#else
-static void ssv6200_sw_scan_start(struct ieee80211_hw *hw)
-#endif
 {
-//#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
 	((struct ssv_softc *)(hw->priv))->bScanning = true;
-//#endif
 	SMAC_REG_READ(((struct ssv_softc *)(hw->priv))->sh,
 		      ADR_RX_11B_CCA_CONTROL, &pre_11b_cca_control);
 	SMAC_REG_WRITE(((struct ssv_softc *)(hw->priv))->sh,
@@ -3205,12 +3026,8 @@ static void ssv6200_sw_scan_start(struct ieee80211_hw *hw)
 	//printk("--------------%s(): \n", __FUNCTION__);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 static void ssv6200_sw_scan_complete(struct ieee80211_hw *hw,
 				     struct ieee80211_vif *vif)
-#else
-static void ssv6200_sw_scan_complete(struct ieee80211_hw *hw)
-#endif
 {
 
 #ifdef CONFIG_SSV_MRX_EN3_CTRL
@@ -3247,44 +3064,29 @@ static int ssv6200_set_tim(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,2,0)
-static int ssv6200_conf_tx(struct ieee80211_hw *hw, u16 queue,
-			   const struct ieee80211_tx_queue_params *params)
-#else
 static int ssv6200_conf_tx(struct ieee80211_hw *hw,
 			   struct ieee80211_vif *vif, u16 queue,
 			   const struct ieee80211_tx_queue_params *params)
-#endif
 {
 	struct ssv_softc *sc = hw->priv;
 	u32 cw;
 	u8 hw_txqid = sc->tx.hw_txqid[queue];
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
 	struct ssv_vif_priv_data *priv_vif =
 	    (struct ssv_vif_priv_data *)vif->drv_priv;
 	printk
 	    ("[I] sv6200_conf_tx vif[%d] qos[%d] queue[%d] aifsn[%d] cwmin[%d] cwmax[%d] txop[%d] \n",
 	     priv_vif->vif_idx, vif->bss_conf.qos, queue, params->aifs,
 	     params->cw_min, params->cw_max, params->txop);
-#else
-	printk
-	    ("[I] sv6200_conf_tx queue[%d] aifsn[%d] cwmin[%d] cwmax[%d] txop[%d] \n",
-	     queue, params->aifs, params->cw_min, params->cw_max, params->txop);
-#endif
 	if (queue > NL80211_TXQ_Q_BK)
 		return 1;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
 	if (priv_vif->vif_idx != 0) {
 		dev_warn(sc->dev,
 			 "WMM setting applicable to primary interface only.\n");
 		return 1;
 	}
-#endif
 	mutex_lock(&sc->mutex);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
 	SMAC_REG_SET_BITS(sc->sh, ADR_GLBLE_SET,
 			  (vif->bss_conf.qos << QOS_EN_SFT), QOS_EN_MSK);
-#endif
 	cw = (params->aifs - 1) & 0xf;
 	cw |= ((ilog2(params->cw_min + 1)) & 0xf) << TXQ1_MTX_Q_ECWMIN_SFT;
 	cw |= ((ilog2(params->cw_max + 1)) & 0xf) << TXQ1_MTX_Q_ECWMAX_SFT;
@@ -3294,41 +3096,17 @@ static int ssv6200_conf_tx(struct ieee80211_hw *hw,
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
-				struct ieee80211_vif *vif,
-				enum ieee80211_ampdu_mlme_action action,
-				struct ieee80211_sta *sta, u16 tid, u16 * ssn)
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0) && LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
-static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
-				struct ieee80211_vif *vif,
-				enum ieee80211_ampdu_mlme_action action,
-				struct ieee80211_sta *sta,
-				u16 tid, u16 * ssn, u8 buf_size)
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0) && LINUX_VERSION_CODE < KERNEL_VERSION(4,4,69)
-static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
-				struct ieee80211_vif *vif,
-				enum ieee80211_ampdu_mlme_action action,
-				struct ieee80211_sta *sta,
-				u16 tid, u16 * ssn, u8 buf_size, bool amsdu)
-#else
 static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
 				struct ieee80211_vif *vif,
 				struct ieee80211_ampdu_params *params)
-#endif
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	u8 buf_size = 32;
-#endif
 	struct ssv_softc *sc = hw->priv;
 	int ret = 0;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,69)
 	struct ieee80211_sta *sta = params->sta;
 	enum ieee80211_ampdu_mlme_action action = params->action;
 	u16 tid = params->tid;
 	u16 *ssn = &(params->ssn);
 	u8 buf_size = params->buf_size;
-#endif
 	if (sta == NULL)
 		return ret;
 #if (!Enable_AMPDU_Rx)
@@ -3353,13 +3131,9 @@ static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
 		return -EOPNOTSUPP;
 	}
 	if ((action == IEEE80211_AMPDU_TX_START
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-	     || action == IEEE80211_AMPDU_TX_STOP
-#else
 	     || action == IEEE80211_AMPDU_TX_STOP_CONT
 	     || action == IEEE80211_AMPDU_TX_STOP_FLUSH
 	     || action == IEEE80211_AMPDU_TX_STOP_FLUSH_CONT
-#endif
 	     || action == IEEE80211_AMPDU_TX_OPERATIONAL)
 	    && (!(sc->sh->cfg.hw_caps & SSV6200_HW_CAP_AMPDU_TX))) {
 		ampdu_db_log("Disable AMPDU_TX(2).\n");
@@ -3369,11 +3143,9 @@ static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
 	case IEEE80211_AMPDU_RX_START:
 #ifdef WIFI_CERTIFIED
 		if (sc->rx_ba_session_count >= SSV6200_RX_BA_MAX_SESSIONS) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3,1,0)
 			ieee80211_stop_rx_ba_session(vif,
 						     (1 << (sc->ba_tid)),
 						     sc->ba_ra_addr);
-#endif
 			sc->rx_ba_session_count--;
 		}
 #else
@@ -3384,10 +3156,8 @@ static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
 		} else
 		    if ((sc->rx_ba_session_count >= SSV6200_RX_BA_MAX_SESSIONS)
 			&& (sc->rx_ba_sta == sta)) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3,1,0)
 			ieee80211_stop_rx_ba_session(vif, (1 << (sc->ba_tid)),
 						     sc->ba_ra_addr);
-#endif
 			sc->rx_ba_session_count--;
 		}
 #endif
@@ -3416,13 +3186,9 @@ static int ssv6200_ampdu_action(struct ieee80211_hw *hw,
 		ssv6200_ampdu_tx_start(tid, sta, hw, ssn);
 		ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		break;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-	case IEEE80211_AMPDU_TX_STOP:
-#else
 	case IEEE80211_AMPDU_TX_STOP_CONT:
 	case IEEE80211_AMPDU_TX_STOP_FLUSH:
 	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
-#endif
 		printk(KERN_ERR
 		       "AMPDU_TX_STOP %02X:%02X:%02X:%02X:%02X:%02X %d.\n",
 		       sta->addr[0], sta->addr[1], sta->addr[2], sta->addr[3],
@@ -3683,15 +3449,9 @@ static void _proc_data_rx_skb(struct ssv_softc *sc, struct sk_buff *rx_skb)
 	rxs = IEEE80211_SKB_RXCB(rx_skb);
 	memset(rxs, 0, sizeof(struct ieee80211_rx_status));
 	ssv6xxx_rc_mac8011_rate_idx(sc, rxdesc->rate_idx, rxs);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 //    printk("mactime=%u, len=%d\r\n", *((u32 *)&rx_skb->data[28]), rxdesc->len);    //+++
 	rxs->mactime = *((u32 *) & rx_skb->data[28]);
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-	chan = sc->hw->conf.channel;
-#else
 	chan = sc->hw->conf.chandef.chan;
-#endif
 	rxs->band = chan->band;
 	rxs->freq = chan->center_freq;
 	rxs->antenna = 1;
@@ -3894,14 +3654,8 @@ static void _proc_data_rx_skb(struct ssv_softc *sc, struct sk_buff *rx_skb)
 		printk("Others signal %d\n", rxs->signal);
 #endif
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
-	rxs->flag = RX_FLAG_MACTIME_MPDU;
-#else
 //    rxs->flag = RX_FLAG_MACTIME_START;          //+++
-#endif
 	rxs->rx_flags = 0;
-#endif
 	if (rxphy->aggregate)
 		rxs->flag |= RX_FLAG_NO_SIGNAL_VAL;
 	sc->hw_mng_used = rxdesc->mng_used;
