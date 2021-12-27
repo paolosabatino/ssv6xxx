@@ -189,7 +189,6 @@ void thermal_monitor(struct work_struct *work)
 int get_flash_info(struct ssv_softc *sc)
 {
     struct file *fp = (struct file *)NULL;
-    mm_segment_t fs;
     int i, ret;
 
     pflash_cfg = &flash_cfg;
@@ -213,10 +212,7 @@ int get_flash_info(struct ssv_softc *sc)
         return ret;
     }
 
-    fs = get_fs();
-    set_fs(KERNEL_DS);
     fp->f_op->read(fp, (char *)pflash_cfg, sizeof(flash_cfg), &fp->f_pos);
-    set_fs(fs);
     
     filp_close(fp, NULL);
     ret = 1;

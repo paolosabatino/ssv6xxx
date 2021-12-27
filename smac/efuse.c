@@ -44,8 +44,6 @@ int closeFile(struct file *fp)
 
 void initKernelEnv(void)
 {
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
 }
 
 void parseMac(char *mac, u_int8_t addr[])
@@ -71,7 +69,6 @@ static int readfile_mac(u8 * path, u8 * mac_addr)
 			parseMac(buf, (uint8_t *) mac_addr);
 		} else
 			pr_err("read file error %d=[%s]\n", ret, path);
-		set_fs(oldfs);
 		closeFile(fp);
 	} else
 		pr_err("Read open File fail[%s]!!!! \n", path);
@@ -83,7 +80,6 @@ static int write_mac_to_file(u8 * mac_path, u8 * mac_addr)
 	char buf[128];
 	struct file *fp = NULL;
 	int ret = 0, len;
-	mm_segment_t old_fs;
 	fp = openFile(mac_path, O_WRONLY | O_CREAT, 0640);
 	if (fp != NULL) {
 		initKernelEnv();
@@ -91,10 +87,7 @@ static int write_mac_to_file(u8 * mac_path, u8 * mac_addr)
 		sprintf(buf, "%x:%x:%x:%x:%x:%x", mac_addr[0], mac_addr[1],
 			mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
 		len = strlen(buf) + 1;
-		old_fs = get_fs();
-		set_fs(KERNEL_DS);
 		fp->f_op->write(fp, (char *)buf, len, &fp->f_pos);
-		set_fs(old_fs);
 		closeFile(fp);
 	} else
 		pr_err("Write open File fail!!!![%s] \n", mac_path);

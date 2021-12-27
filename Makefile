@@ -60,6 +60,7 @@ OBJS := ssvdevice/ssvdevice.c \
 	hci/ssv_hci.c \
 	smac/init.c \
 	smac/dev.c \
+	smac/ssv_rc.c \
 	smac/ssv_ht_rc.c \
 	smac/ap.c \
 	smac/ampdu.c \
