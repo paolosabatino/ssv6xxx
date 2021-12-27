@@ -64,12 +64,15 @@ OBJS := ssvdevice/ssvdevice.c \
 	smac/ssv_ht_rc.c \
 	smac/ap.c \
 	smac/ampdu.c \
-	smac/ssv6xxx_debugfs.c \
 	smac/efuse.c \
 	smac/ssv_pm.c \
 	smac/sar.c \
 	hwif/sdio/sdio.c \
 	ssv6051-generic-wlan.c
+
+ifeq ($(findstring -DCONFIG_SSV6XXX_DEBUGFS, $(ccflags-y)), -DCONFIG_SSV6XXX_DEBUGFS)
+OBJS +=	smac/ssv6xxx_debugfs.c
+endif
 
 ifeq ($(findstring -DCONFIG_SSV_VENDOR_EXT_SUPPORT, $(ccflags-y)), -DCONFIG_SSV_VENDOR_EXT_SUPPORT)
 OBJS +=	smac/ssv_cfgvendor.c
@@ -77,13 +80,6 @@ endif
 
 ifeq ($(findstring -DCONFIG_SSV_SMARTLINK, $(ccflags-y)), -DCONFIG_SSV_SMARTLINK)
 OBJS += smac/smartlink.c
-endif
-
-ifeq ($(findstring -DCONFIG_SSV_SUPPORT_AES_ASM, $(ccflags-y)), -DCONFIG_SSV_SUPPORT_AES_ASM)
-OBJS += crypto/aes_glue.c
-OBJS += crypto/sha1_glue.c
-ASMS := crypto/aes-armv4.S
-ASMS += crypto/sha1-armv4-large.S
 endif
 
 $(KMODULE_NAME)-y += $(ASMS:.S=.o)

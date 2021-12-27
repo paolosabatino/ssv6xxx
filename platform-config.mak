@@ -80,8 +80,6 @@ ccflags-y += -DUSE_GENERIC_DECI_TBL
 ccflags-y += -DFW_WSID_WATCH_LIST
 #ccflags-y += -DUSE_BATCH_RX
 #ccflags-y += -DCONFIG_IRQ_DEBUG_COUNT
-#ccflags-y += -DCONFIG_SSV_SUPPORT_AES_ASM
-
 
 ccflags-y += -DSSV6200_ECO
 #ccflags-y += -DENABLE_WAKE_IO_ISR_WHEN_HCI_ENQUEUE
