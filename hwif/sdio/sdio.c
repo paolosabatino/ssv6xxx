@@ -28,7 +28,6 @@
 #include <linux/version.h>
 #include <linux/firmware.h>
 #include <linux/reboot.h>
-#include <linux/printk.h>
 #include <ssv6200.h>
 #include <linux/skbuff.h>
 
@@ -256,7 +255,7 @@ void *ssv6xxx_open_firmware(char *user_mainfw)
 	struct file *fp;
 	fp = filp_open(user_mainfw, O_RDONLY, 0);
 	if (IS_ERR(fp)) {
-		printk("ssv6xxx_open_firmware failed!!\n");
+		pr_debug("ssv6xxx_open_firmware failed!!\n");
 		fp = NULL;
 	}
 	return fp;
@@ -315,13 +314,13 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
 #endif
 		fw_fp = ssv6xxx_open_firmware(firmware_name);
 		if (!fw_fp) {
-			printk("failed to find firmware (%s)\n", firmware_name);
+			dev_err(child, "failed to find firmware (%s)\n", firmware_name);
 			ret = -1;
 			goto out;
 		}
 		fw_buffer = (u8 *) kzalloc(FW_BLOCK_SIZE, GFP_KERNEL);
 		if (fw_buffer == NULL) {
-			printk("Failed to allocate buffer for firmware.\n");
+			dev_err(child, "Failed to allocate buffer for firmware.\n");
 			goto out;
 		}
 		do {
@@ -338,7 +337,7 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
 				    (child, ADR_PLATFORM_CLOCK_ENABLE,
 				     clk_en | (1 << 2))) ;
 			}
-			printk("Writing firmware to SSV6XXX...\n");
+			dev_dbg(child, "Writing firmware to SSV6XXX...\n");
 			memset(fw_buffer, 0xA5, FW_BLOCK_SIZE);
 			while ((len =
 				ssv6xxx_read_fw_block((char *)fw_buffer,
@@ -357,8 +356,7 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
 						     (u8 *) (fw_buffer +
 							     j * 128), 128);
 						if (ret) {
-							printk
-							    ("ssv6xxx_sdio_write_sram failed!!\n");
+							dev_err(child, "ssv6xxx_sdio_write_sram failed!!\n");
 							break;
 						}
 						sram_addr += 128;
@@ -436,11 +434,11 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
 				     (block_count << 16))) ;
 				if (ssv6xxx_sdio_read_reg
 				    (child, FW_STATUS_REG, &fw_clkcnt)) ;
-				printk("(block_count << 16) = %x,reg =%x\n",
+				dev_dbg(child, "(block_count << 16) = %x,reg =%x\n",
 				       (block_count << 16), fw_clkcnt);
 				if (ssv6xxx_sdio_write_reg
 				    (child, ADR_BRG_SW_RST, 0x1)) ;
-				printk("Firmware \"%s\" loaded\n",
+				dev_info(child, "Firmware \"%s\" loaded\n",
 				       firmware_name);
 				msleep(50);
 				if (ssv6xxx_sdio_read_reg
@@ -451,20 +449,14 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
 					    (child, FW_STATUS_REG,
 					     (~checksum & FW_STATUS_MASK))) ;
 					ret = 0;
-					printk
-					    ("Firmware check OK.%04x = %04x\n",
-					     fw_checksum, checksum);
+					dev_dbg(child, "Firmware check OK.%04x = %04x\n", fw_checksum, checksum);
 					break;
 				} else {
-					printk
-					    ("FW checksum error: %04x != %04x\n",
-					     fw_checksum, checksum);
+					dev_err(child, "FW checksum error: %04x != %04x\n", fw_checksum, checksum);
 					ret = -1;
 				}
 			} else {
-				printk
-				    ("Firmware \"%s\" download failed. (%d)\n",
-				     firmware_name, ret);
+				dev_err(child, "Firmware \"%s\" download failed. (%d)\n", firmware_name, ret);
 				ret = -1;
 			}
 		}
@@ -540,12 +532,12 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 		ret =
 		    ssv6xxx_get_firmware(glue->dev, firmware_name, &ssv6xxx_fw);
 		if (ret) {
-			pr_err("failed to find firmware (%d)\n", ret);
+			dev_err(child, "failed to find firmware (%d)\n", ret);
 			goto out;
 		}
 		fw_buffer = (u8 *) kzalloc(FW_BLOCK_SIZE, GFP_KERNEL);
 		if (fw_buffer == NULL) {
-			pr_err("Failed to allocate buffer for firmware.\n");
+			dev_err(child, "Failed to allocate buffer for firmware.\n");
 			goto out;
 		}
 
@@ -591,7 +583,7 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 
 			block_count = ssv6xxx_fw->size / FW_BLOCK_SIZE;
 			res_size = ssv6xxx_fw->size % FW_BLOCK_SIZE;
-			printk("Writing %d blocks to SSV6XXX...", block_count);
+			dev_dbg(child, "Writing %d blocks to SSV6XXX...", block_count);
 			for (block_idx = 0, fw_data =
 			     (u8 *) ssv6xxx_fw->data, sram_addr = 0;
 			     block_idx < block_count;
@@ -635,7 +627,7 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 
 				if (ssv6xxx_sdio_write_reg
 				    (child, ADR_BRG_SW_RST, 0x1)) ;
-				printk("Firmware \"%s\" loaded\n",
+				dev_info(child, "Firmware \"%s\" loaded\n",
 				       firmware_name);
 
 				msleep(50);
@@ -647,19 +639,15 @@ ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
 					    (child, FW_STATUS_REG,
 					     (~checksum & FW_STATUS_MASK))) ;
 					ret = 0;
-					printk("Firmware check OK.\n");
+					dev_dbg(child, "Firmware check OK.\n");
 					break;
 				} else {
-					printk
-					    ("FW checksum error: %04x != %04x\n",
-					     fw_checksum, checksum);
+					dev_err(child, "FW checksum error: %04x != %04x\n", fw_checksum, checksum);
 					ret = -1;
 				}
 
 			} else {
-				printk
-				    ("Firmware \"%s\" download failed. (%d)\n",
-				     firmware_name, ret);
+				dev_err(child, "Firmware \"%s\" download failed. (%d)\n", firmware_name, ret);
 				ret = -1;
 			}
 		}
@@ -890,7 +878,7 @@ static void ssv6xxx_sdio_irq_enable(struct device *child)
 		sdio_release_host(func);
 	}
 
-	printk("ssv6xxx_sdio_irq_enable\n");
+	dev_dbg(child, "ssv6xxx_sdio_irq_enable\n");
 }
 
 static void ssv6xxx_sdio_irq_disable(struct device *child, bool iswaitirq)
@@ -899,7 +887,7 @@ static void ssv6xxx_sdio_irq_disable(struct device *child, bool iswaitirq)
 	struct sdio_func *func;
 	struct ssv6xxx_platform_data *pwlan_data = &wlan_data;
 	int ret;
-	printk("ssv6xxx_sdio_irq_disable\n");
+	dev_dbg(child, "ssv6xxx_sdio_irq_disable\n");
 	if ((wlan_data.is_enabled == false) || (child->parent == NULL))
 		return;
 	glue = dev_get_drvdata(child->parent);
@@ -909,7 +897,7 @@ static void ssv6xxx_sdio_irq_disable(struct device *child, bool iswaitirq)
 	{
 		func = dev_to_sdio_func(glue->dev);
 		if (func == NULL) {
-			printk("func == NULL\n");
+			dev_dbg(child, "sdio func == NULL\n");
 			return;
 		}
 		sdio_claim_host(func);
@@ -976,7 +964,7 @@ ssv6xxx_sdio_read_parameter(struct sdio_func *func,
 		glue->dataIOPort, glue->regIOPort);
 	err_ret = sdio_set_block_size(func, CONFIG_PLATFORM_SDIO_BLOCK_SIZE);
 	if (err_ret != 0) {
-		printk("SDIO setting SDIO_DEF_BLOCK_SIZE fail!!\n");
+		dev_warn(&func->dev, "SDIO setting SDIO_DEF_BLOCK_SIZE fail!!\n");
 	}
 	sdio_writeb(func, CONFIG_PLATFORM_SDIO_OUTPUT_TIMING,
 		    REG_OUTPUT_TIMING_REG, &err_ret);
@@ -1039,7 +1027,7 @@ ssv6xxx_sdio_setup_scat_data(struct sdio_scatter_req *scat_req,
 	int i;
 	data->blksz = SDIO_DEF_BLOCK_SIZE;
 	data->blocks = scat_req->len / SDIO_DEF_BLOCK_SIZE;
-	printk
+	pr_debug
 	    ("scatter: (%s)  (block len: %d, block count: %d) , (tot:%d,sg:%d)\n",
 	     (scat_req->req & SDIO_WRITE) ? "WR" : "RD", data->blksz,
 	     data->blocks, scat_req->len, scat_req->scat_entries);
@@ -1048,7 +1036,7 @@ ssv6xxx_sdio_setup_scat_data(struct sdio_scatter_req *scat_req,
 	sg = scat_req->sgentries;
 	sg_init_table(sg, scat_req->scat_entries);
 	for (i = 0; i < scat_req->scat_entries; i++, sg++) {
-		printk("%d: addr:0x%p, len:%d\n",
+		pr_debug("%d: addr:0x%p, len:%d\n",
 		       i, scat_req->scat_list[i].buf,
 		       scat_req->scat_list[i].len);
 		sg_set_buf(sg, scat_req->scat_list[i].buf,
@@ -1120,7 +1108,7 @@ static void ssv6xxx_set_sdio_clk(struct sdio_func *func, u32 sdio_hz)
 		sdio_hz = host->f_min;
 	else if (sdio_hz > host->f_max)
 		sdio_hz = host->f_max;
-	printk("%s:set sdio clk %dHz\n", __FUNCTION__, sdio_hz);
+	dev_dbg(&func->dev, "%s:set sdio clk %dHz\n", __FUNCTION__, sdio_hz);
 	sdio_claim_host(func);
 	host->ios.clock = sdio_hz;
 	host->ops->set_ios(host, &host->ios);
@@ -1173,12 +1161,12 @@ ssv6xxx_sdio_power_on(struct ssv6xxx_platform_data *pdata,
 	int ret = 0;
 	if (pdata->is_enabled == true)
 		return 0;
-	printk("ssv6xxx_sdio_power_on\n");
+	dev_dbg(&func->dev, "ssv6xxx_sdio_power_on\n");
 	sdio_claim_host(func);
 	ret = sdio_enable_func(func);
 	sdio_release_host(func);
 	if (ret) {
-		printk("Unable to enable sdio func: %d)\n", ret);
+		dev_err(&func->dev, "Unable to enable sdio func: %d)\n", ret);
 		return ret;
 	}
 	msleep(10);
@@ -1193,7 +1181,7 @@ ssv6xxx_sdio_power_off(struct ssv6xxx_platform_data *pdata,
 	int ret;
 	if (pdata->is_enabled == false)
 		return 0;
-	printk("ssv6xxx_sdio_power_off\n");
+	dev_dbg(&func->dev, "ssv6xxx_sdio_power_off\n");
 	sdio_claim_host(func);
 	ret = sdio_disable_func(func);
 	sdio_release_host(func);
@@ -1218,12 +1206,9 @@ ssv6xxx_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 	int ret = -ENOMEM;
 	const char *chip_family = "ssv6200";
 	if (ssv_devicetype != 0) {
-		printk(KERN_INFO "Not using SSV6200 normal SDIO driver.\n");
+		dev_info(&func->dev, "Not using SSV6200 normal SDIO driver.\n");
 		return -ENODEV;
 	}
-	printk(KERN_INFO "=======================================\n");
-	printk(KERN_INFO "==           RUN SDIO                ==\n");
-	printk(KERN_INFO "=======================================\n");
 	if (func->num != 0x01)
 		return -ENODEV;
 	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
@@ -1292,10 +1277,10 @@ static void ssv6xxx_sdio_remove(struct sdio_func *func)
 {
 	struct ssv6xxx_sdio_glue *glue = sdio_get_drvdata(func);
 	struct ssv6xxx_platform_data *pwlan_data = &wlan_data;
-	printk("ssv6xxx_sdio_remove..........\n");
+	dev_dbg(&func->dev, "ssv6xxx_sdio_remove..........\n");
 	ssv6xxx_sdio_status = 0;
 	if (glue) {
-		printk("ssv6xxx_sdio_remove - ssv6xxx_sdio_irq_disable\n");
+		dev_dbg(&func->dev, "ssv6xxx_sdio_remove - ssv6xxx_sdio_irq_disable\n");
 		ssv6xxx_sdio_irq_disable(&glue->core->dev, false);
 		glue->dev_ready = false;
 		ssv6xxx_low_sdio_clk(func);
@@ -1303,7 +1288,7 @@ static void ssv6xxx_sdio_remove(struct sdio_func *func)
 		if (glue->dmaSkb != NULL)
 			dev_kfree_skb(glue->dmaSkb);
 
-		printk("ssv6xxx_sdio_remove - disable mask\n");
+		dev_dbg(&func->dev, "ssv6xxx_sdio_remove - disable mask\n");
 		ssv6xxx_sdio_irq_setmask(&glue->core->dev, 0xff);
 #ifdef CONFIG_PM
 		ssv6xxx_sdio_trigger_pmu(glue->dev);
@@ -1311,14 +1296,14 @@ static void ssv6xxx_sdio_remove(struct sdio_func *func)
 			dev_kfree_skb(glue->cmd_skb);
 #endif
 		ssv6xxx_sdio_power_off(pwlan_data, func);
-		printk("platform_device_del \n");
+		dev_dbg(&func->dev, "platform_device_del \n");
 		platform_device_del(glue->core);
-		printk("platform_device_put \n");
+		dev_dbg(&func->dev, "platform_device_put \n");
 		platform_device_put(glue->core);
 		kfree(glue);
 	}
 	sdio_set_drvdata(func, NULL);
-	printk("ssv6xxx_sdio_remove leave..........\n");
+	dev_dbg(&func->dev, "ssv6xxx_sdio_remove leave..........\n");
 }
 
 static int ssv6xxx_sdio_trigger_pmu(struct device *dev)
@@ -1384,7 +1369,7 @@ static void ssv6xxx_sdio_reset(struct device *child)
 #ifdef CONFIG_PM
 	struct ssv6xxx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func = dev_to_sdio_func(glue->dev);
-	printk("%s\n", __FUNCTION__);
+	dev_dbg(child, "%s\n", __FUNCTION__);
 	if (glue == NULL || glue->dev == NULL || func == NULL)
 		return;
 	ssv6xxx_sdio_trigger_pmu(glue->dev);
@@ -1407,7 +1392,7 @@ static int ssv6xxx_sdio_suspend(struct device *dev)
 		ssv6xxx_low_sdio_clk(func);
 		ret = ssv6xxx_sdio_trigger_pmu(dev);
 		if (ret)
-			printk("ssv6xxx_sdio_trigger_pmu fail!!\n");
+			dev_warn(dev, "ssv6xxx_sdio_trigger_pmu fail!!\n");
 		if (!(flags & MMC_PM_KEEP_POWER)) {
 			dev_err(dev,
 				"%s: cannot remain alive while host is suspended\n",
@@ -1425,7 +1410,7 @@ static int ssv6xxx_sdio_resume(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	{
-		printk("ssv6xxx_sdio_resume\n");
+		dev_dbg(dev, "ssv6xxx_sdio_resume\n");
 		{
 			ssv6xxx_do_sdio_wakeup(func);
 			mdelay(10);
@@ -1443,7 +1428,7 @@ static const struct dev_pm_ops ssv6xxx_sdio_pm_ops = {
 #endif
 
 struct sdio_driver ssv6xxx_sdio_driver = {
-	.name = "SSV6XXX_SDIO",
+	.name = "ssv6051",
 	.id_table = ssv6xxx_sdio_devices,
 	.probe = ssv6xxx_sdio_probe,
 	.remove = ssv6xxx_sdio_remove,
@@ -1458,13 +1443,13 @@ EXPORT_SYMBOL(ssv6xxx_sdio_driver);
 
 int ssv6xxx_sdio_init(void)
 {
-	printk(KERN_INFO "ssv6xxx_sdio_init\n");
+	pr_info("ssv6xxx_sdio_init\n");
 	return sdio_register_driver(&ssv6xxx_sdio_driver);
 }
 
 void ssv6xxx_sdio_exit(void)
 {
-	printk(KERN_INFO "ssv6xxx_sdio_exit\n");
+	pr_info("ssv6xxx_sdio_exit\n");
 	sdio_unregister_driver(&ssv6xxx_sdio_driver);
 }
 

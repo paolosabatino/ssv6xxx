@@ -27,7 +27,6 @@
 #endif
 #include <ssv6200.h>
 #include <hci/hctrl.h>
-#include <ssv_version.h>
 #include <ssv_firmware_version.h>
 #include "dev_tbl.h"
 #include "dev.h"
@@ -135,17 +134,17 @@ int ssv6xxx_do_iq_calib(struct ssv_hw *sh, struct ssv6xxx_iqk_cfg *p_cfg)
 	struct sk_buff *skb;
 	struct cfg_host_cmd *host_cmd;
 	int ret = 0;
-	printk("# Do init_cali (iq)\n");
+	dev_dbg(sh->sc->dev, "# Do init_cali (iq)\n");
 	skb =
 	    ssv_skb_alloc(HOST_CMD_HDR_LEN + IQK_CFG_LEN + PHY_SETTING_SIZE +
 			  RF_SETTING_SIZE);
 	if (skb == NULL) {
-		printk("init ssv6xxx_do_iq_calib fail!!!\n");
+		dev_err(sh->sc->dev, "init ssv6xxx_do_iq_calib failure\n");
 		return (-1);
 	}
 	if ((PHY_SETTING_SIZE > MAX_PHY_SETTING_TABLE_SIZE) ||
 	    (RF_SETTING_SIZE > MAX_RF_SETTING_TABLE_SIZE)) {
-		printk("Please recheck RF or PHY table size!!!\n");
+		dev_warn(sh->sc->dev, "wrong RF or PHY table size\n");
 		WARN_ON(1);
 		return (-1);
 	}
@@ -244,7 +243,7 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 	if (sh->cfg.hw_caps & SSV6200_HW_CAP_TDLS) {
 		hw->wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
 		hw->wiphy->flags |= WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
-		printk("TDLS function enabled in sta.cfg\n");
+		dev_info(sc->dev, "TDLS function enabled in sta.cfg\n");
 	}
 	hw->queues = 4;
 	hw->max_rates = 4;
@@ -300,10 +299,10 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
             set_wiphy_dev(hw->wiphy, softc->dev);
             *((struct ssv_softc **)wiphy_priv(hw->wiphy)) = softc;
         }
-       	printk("Registering Vendor80211\n");
+       	dev_dbg(sc->dev, "Registering Vendor80211\n");
        	err = ssv_cfgvendor_attach(hw->wiphy);
        	if (unlikely(err < 0)) {
-       		printk("Couldn not attach vendor commands (%d)\n", err);
+       		dev_err(sc->dev, "Couldn not attach vendor commands (%d)\n", err);
        	}
     }
 #endif /* (LINUX_VERSION_CODE > KERNEL_VERSION(3, 14, 0)) || defined(WL_VENDOR_EXT_SUPPORT) */
@@ -311,7 +310,7 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 
 void ssv6xxx_watchdog_restart_hw(struct ssv_softc *sc)
 {
-	printk("%s(): \n", __FUNCTION__);
+	dev_dbg(sc->dev, "%s()\n", __FUNCTION__);
 	sc->restart_counter++;
 	sc->force_triger_reset = true;
 	sc->beacon_info[0].pubf_addr = 0x00;
@@ -416,8 +415,7 @@ static int ssv6xxx_init_softc(struct ssv_softc *sc)
 	ssv6xxx_set_80211_hw_capab(sc);
 	ret = ssv6xxx_rate_control_register();
 	if (ret != 0) {
-		printk("%s(): Failed to register rc algorithm.\n",
-		       __FUNCTION__);
+		dev_warn(sc->dev, "%s(): Failed to register rc algorithm.\n",__FUNCTION__);
 	}
 	init_waitqueue_head(&sc->tx_wait_q);
 	sc->tx_wait_q_woken = 0;
@@ -433,7 +431,6 @@ static int ssv6xxx_init_softc(struct ssv_softc *sc)
 	skb_queue_head_init(&sc->rx_skb_q);
 	sc->rx_task = kthread_run(ssv6xxx_rx_task, sc, "ssv6xxx_rx_task");
 	ssv6xxx_preload_sw_cipher();
-	printk("Setting up timer\n");
 	timer_setup(&sc->watchdog_timeout, ssv6200_watchdog_timeout, 0);
 	init_waitqueue_head(&sc->fw_wait_q);
 	INIT_LIST_HEAD(&rssi_res.rssi_list);
@@ -449,18 +446,12 @@ static int ssv6xxx_init_softc(struct ssv_softc *sc)
 	return ret;
 }
 
-void ssv6xxx_deinit_prepare(void)
-{
-	printk("%s\n", __FUNCTION__);
-
-}
-
 static int ssv6xxx_deinit_softc(struct ssv_softc *sc)
 {
 	void *channels;
 	struct sk_buff *skb;
 	u8 remain_size;
-	printk("%s():\n", __FUNCTION__);
+	dev_dbg(sc->dev, "%s():\n", __FUNCTION__);
 	if (sc->sh->cfg.hw_caps & SSV6200_HW_CAP_2GHZ) {
 		channels = sc->sbands[INDEX_80211_BAND_2GHZ].channels;
 		kfree(channels);
@@ -483,16 +474,16 @@ static int ssv6xxx_deinit_softc(struct ssv_softc *sc)
 			break;
 	} while (remain_size);
 	if (sc->tx_task != NULL) {
-		printk("Stopping TX task...\n");
+		dev_dbg(sc->dev, "Stopping TX task...\n");
 		kthread_stop(sc->tx_task);
 		sc->tx_task = NULL;
-		printk("Stopped TX task.\n");
+		dev_dbg(sc->dev, "Stopped TX task.\n");
 	}
 	if (sc->rx_task != NULL) {
-		printk("Stopping RX task...\n");
+		dev_dbg(sc->dev, "Stopping RX task...\n");
 		kthread_stop(sc->rx_task);
 		sc->rx_task = NULL;
-		printk("Stopped RX task.\n");
+		dev_dbg(sc->dev, "Stopped RX task.\n");
 	}
 	destroy_workqueue(sc->config_wq);
 	return 0;
@@ -515,17 +506,10 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 	u8 temp_path[256] = "";
 	u32 *ptr, id_len, regval, temp[0x8];
 	char *chip_id = sh->chip_id;
-	printk(KERN_INFO "SVN version %d\n", ssv_root_version);
-	printk(KERN_INFO "SVN ROOT URL %s \n", SSV_ROOT_URl);
-	printk(KERN_INFO "COMPILER HOST %s \n", COMPILERHOST);
-	printk(KERN_INFO "COMPILER DATE %s \n", COMPILERDATE);
-	printk(KERN_INFO "COMPILER OS %s \n", COMPILEROS);
-	printk(KERN_INFO "COMPILER OS ARCH %s \n", COMPILEROSARCH);
 	SMAC_REG_READ(sh, ADR_IC_TIME_TAG_1, &regval);
 	sh->chip_tag = ((u64) regval << 32);
 	SMAC_REG_READ(sh, ADR_IC_TIME_TAG_0, &regval);
 	sh->chip_tag |= (regval);
-	printk(KERN_INFO "CHIP TAG: %llx \n", sh->chip_tag);
 	SMAC_REG_READ(sh, ADR_CHIP_ID_3, &regval);
 	*((u32 *) & chip_id[0]) = (u32) LONGSWAP(regval);
 	SMAC_REG_READ(sh, ADR_CHIP_ID_2, &regval);
@@ -535,7 +519,7 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 	SMAC_REG_READ(sh, ADR_CHIP_ID_0, &regval);
 	*((u32 *) & chip_id[12]) = (u32) LONGSWAP(regval);
 	chip_id[12 + sizeof(u32)] = 0;
-	printk(KERN_INFO "CHIP ID: %s \n", chip_id);
+	dev_info(sh->sc->dev, "chip id: %s, tag: %llx\n", chip_id, sh->chip_tag);
 	if (sc->ps_status == PWRSV_ENABLE) {
 		SMAC_REG_WRITE(sh, ADR_RX_FLOW_DATA,
 			       M_ENG_MACRX | (M_ENG_ENCRYPT_SEC << 4) |
@@ -561,7 +545,7 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 		SMAC_REG_READ(sh, ADR_BRG_SW_RST, &regval);
 		i++;
 		if (i > 10000) {
-			printk("MAC reset fail !!!!\n");
+			dev_err(sh->sc->dev, "MAC reset fail !!!!\n");
 			WARN_ON(1);
 			ret = 1;
 			goto exit;
@@ -621,7 +605,7 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 					       sizeof(struct ssv6xxx_hw_sec),
 					       NOTYPE_BUF);
 			if ((sh->hw_buf_ptr[i] >> 28) != 8) {
-				printk("opps allocate pbuf error\n");
+				dev_err(sh->sc->dev, "opps allocate pbuf error\n");
 				WARN_ON(1);
 				ret = 1;
 				goto exit;
@@ -632,7 +616,7 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 					       sizeof(struct ssv6xxx_hw_sec),
 					       NOTYPE_BUF);
 			if ((sh->hw_buf_ptr[i] >> 28) != 8) {
-				printk("opps allocate pbuf error\n");
+				dev_err(sh->sc->dev, "opps allocate pbuf error\n");
 				WARN_ON(1);
 				ret = 1;
 				goto exit;
@@ -645,7 +629,7 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 	}
 	for (i = 0; i < 0x8; i++) {
 		if (temp[i] == 0x800e0000)
-			printk("0x800e0000\n");
+			dev_dbg(sh->sc->dev, "Found 0x800e0000 at position %d\n", i);
 		else
 			ssv6xxx_pbuf_free(sc, temp[i]);
 	}
@@ -680,7 +664,7 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 	SMAC_REG_WRITE(sh, ADR_INFO_IDX_ADDR, sh->hw_pinfo);
 	SMAC_REG_WRITE(sh, ADR_INFO_LEN_ADDR,
 		       sh->hw_pinfo + (PHY_INFO_TBL2_SIZE) * 4);
-	printk("ADR_INFO_IDX_ADDR[%08x] ADR_INFO_LEN_ADDR[%08x]\n",
+	dev_dbg(sh->sc->dev, "ADR_INFO_IDX_ADDR[%08x] ADR_INFO_LEN_ADDR[%08x]\n",
 	       sh->hw_pinfo, sh->hw_pinfo + (PHY_INFO_TBL2_SIZE) * 4);
 	SMAC_REG_WRITE(sh, ADR_GLBLE_SET,
 		       (0 << OP_MODE_SFT) | (0 << SNIFFER_MODE_SFT) | (1 <<
@@ -743,27 +727,23 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 	if (cfgfirmwarepath != NULL) {
 		sprintf(temp_path, "%s%s", cfgfirmwarepath, WIFI_FIRMWARE_NAME);
 		ret = SMAC_LOAD_FW(sh, temp_path, 1);
-		printk(KERN_INFO "Firmware name cfgfirmwarepath=%s\n",
-		       temp_path);
+		dev_info(sh->sc->dev, "Firmware name set by cfgfirmwarepath to %s\n", temp_path);
 	} else if (sh->cfg.firmware_path[0] != 0x00) {
 		sprintf(temp_path, "%s%s", sh->cfg.firmware_path,
 			WIFI_FIRMWARE_NAME);
 		ret = SMAC_LOAD_FW(sh, temp_path, 1);
-		printk(KERN_INFO "Firmware name sh->cfg.firmware_path=%s\n",
-		       temp_path);
+		dev_info(sh->sc->dev, "Firmware name set by configuration to %s\n", temp_path);
 	} else {
-		printk(KERN_INFO "Firmware name CABRIO_E_FIRMWARE_NAME=%s\n",
-		       WIFI_FIRMWARE_NAME);
+		dev_info(sh->sc->dev, "Firmware name set by compiled default to %s\n", WIFI_FIRMWARE_NAME);
 		ret = SMAC_LOAD_FW(sh, WIFI_FIRMWARE_NAME, 0);
 	}
 	SMAC_REG_READ(sh, FW_VERSION_REG, &regval);
 	if (regval == ssv_firmware_version) {
 		SMAC_REG_SET_BITS(sh, ADR_PHY_EN_1, (1 << RG_PHY_MD_EN_SFT),
 				  RG_PHY_MD_EN_MSK);
-		printk(KERN_INFO "Firmware version %d\n", regval);
+		dev_info(sh->sc->dev, "Firmware version %d\n", regval);
 	} else {
-		printk(KERN_INFO "!! SOS !! SOS !!\n");
-		printk(KERN_INFO "Firmware version not mapping %d\n", regval);
+		dev_err(sh->sc->dev, "Firmware version not mapping %d\n", regval);
 		ret = -1;
 	}
 	ssv6xxx_watchdog_controller(sh, (u8) SSV6XXX_HOST_CMD_WATCHDOG_START);
@@ -782,16 +762,13 @@ void ssv6xxx_deinit_mac(struct ssv_softc *sc)
 
 void inline ssv6xxx_deinit_hw(struct ssv_softc *sc)
 {
-	printk("%s(): \n", __FUNCTION__);
+	dev_dbg(sc->dev, "%s(): \n", __FUNCTION__);
 	ssv6xxx_deinit_mac(sc);
 }
 
 void ssv6xxx_restart_hw(struct ssv_softc *sc)
 {
-	printk("%s(): \n", __FUNCTION__);
-	printk("**************************\n");
-	printk("*** Software MAC reset ***\n");
-	printk("**************************\n");
+	dev_info(sc->dev, "Software MAC reset\n");
 	sc->restart_counter++;
 	sc->force_triger_reset = true;
 	HCI_STOP(sc->sh);
@@ -813,7 +790,7 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 	sh->ampdu_divider = SSV6XXX_AMPDU_DIVIDER;
 	memset(sh->page_count, 0, sizeof(sh->page_count));
 	if (sh->cfg.force_chip_identity) {
-		printk("Force use external RF setting [%08x]\n",
+		dev_info(sh->sc->dev, "Force use external RF setting [%08x]\n",
 		       sh->cfg.force_chip_identity);
 		sh->cfg.chip_identity = sh->cfg.force_chip_identity;
 	}
@@ -831,7 +808,7 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 	case SSV6051Q_P1:
 	case SSV6051Q_P2:
 	case SSV6051Q:
-		printk("SSV6051Q setting\n");
+		dev_info(sh->sc->dev, "Using SSV6051Q setting\n");
 		for (i = 0;
 		     i <
 		     sizeof(ssv6200_rf_tbl) / sizeof(struct ssv6xxx_dev_table);
@@ -855,7 +832,7 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 		}
 		break;
 	case SSV6051Z:
-		printk("SSV6051Z setting\n");
+		dev_info(sh->sc->dev, "Using SSV6051Z setting\n");
 		for (i = 0;
 		     i <
 		     sizeof(ssv6200_rf_tbl) / sizeof(struct ssv6xxx_dev_table);
@@ -879,7 +856,7 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 		}
 		break;
 	case SSV6051P:
-		printk("SSV6051P setting\n");
+		dev_info(sh->sc->dev, "Using SSV6051P setting\n");
 		for (i = 0;
 		     i <
 		     sizeof(ssv6200_rf_tbl) / sizeof(struct ssv6xxx_dev_table);
@@ -905,25 +882,18 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 		}
 		break;
 	default:
-		printk("No RF setting\n");
-		while (1) {
-			printk("**************\n");
-			printk("* Call Help! *\n");
-			printk("**************\n");
-			WARN_ON(1);
-			msleep(10000);
-		};
+		dev_err(sh->sc->dev, "No RF setting\n");
 		break;
 	}
 	if (sh->cfg.crystal_type == SSV6XXX_IQK_CFG_XTAL_26M) {
 		init_iqk_cfg.cfg_xtal = SSV6XXX_IQK_CFG_XTAL_26M;
-		printk("SSV6XXX_IQK_CFG_XTAL_26M\n");
+		dev_info(sh->sc->dev, "Crystal frequency: 26 Mhz\n");
 	} else if (sh->cfg.crystal_type == SSV6XXX_IQK_CFG_XTAL_40M) {
 		init_iqk_cfg.cfg_xtal = SSV6XXX_IQK_CFG_XTAL_40M;
-		printk("SSV6XXX_IQK_CFG_XTAL_40M\n");
+		dev_info(sh->sc->dev, "Crystal frequency: 40 Mhz\n");
 	} else if (sh->cfg.crystal_type == SSV6XXX_IQK_CFG_XTAL_24M) {
-		printk("SSV6XXX_IQK_CFG_XTAL_24M\n");
 		init_iqk_cfg.cfg_xtal = SSV6XXX_IQK_CFG_XTAL_24M;
+		dev_info(sh->sc->dev, "Crystal frequency: 24 Mhz\n");
 		for (i = 0;
 		     i <
 		     sizeof(ssv6200_rf_tbl) / sizeof(struct ssv6xxx_dev_table);
@@ -941,8 +911,7 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 				ssv6200_rf_tbl[i].data = 0x00000000;
 		}
 	} else {
-		printk("Illegal xtal setting !![No XX.cfg]\n");
-		printk("default value is SSV6XXX_IQK_CFG_XTAL_26M!!\n");
+		dev_warn(sh->sc->dev, "Illegal crystal setting, using default value of 26 Mhz\n");
 	}
 	for (i = 0;
 	     i < sizeof(ssv6200_rf_tbl) / sizeof(struct ssv6xxx_dev_table);
@@ -966,19 +935,19 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 			case SSV6051Q_P1:
 			case SSV6051Q_P2:
 			case SSV6051Q:
-				printk("SSV6051Q setting [0x5B606C72]\n");
+				dev_dbg(sh->sc->dev, "SSV6051Q setting [0x5B606C72]\n");
 				phy_setting[i].data = 0x5B606C72;
 				break;
 			case SSV6051Z:
-				printk("SSV6051Z setting [0x60606060]\n");
+				dev_dbg(sh->sc->dev, "SSV6051Z setting [0x60606060]\n");
 				phy_setting[i].data = 0x60606060;
 				break;
 			case SSV6051P:
-				printk("SSV6051P setting [0x6C726C72]\n");
+				dev_dbg(sh->sc->dev, "SSV6051P setting [0x6C726C72]\n");
 				phy_setting[i].data = 0x6C726C72;
 				break;
 			default:
-				printk("Use default power setting\n");
+				dev_dbg(sh->sc->dev, "Use default power setting\n");
 				break;
 			}
 			if (sh->cfg.wifi_tx_gain_level_b) {
@@ -995,7 +964,7 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 						 wifi_tx_gain_level_gn] &
 				    0xffff0000;
 			}
-			printk("TX power setting 0x%x\n", phy_setting[i].data);
+			dev_dbg(sh->sc->dev, "TX power setting 0x%x\n", phy_setting[i].data);
 			init_iqk_cfg.cfg_def_tx_scale_11b =
 			    (phy_setting[i].data >> 0) & 0xff;
 			init_iqk_cfg.cfg_def_tx_scale_11b_p0d5 =
@@ -1008,7 +977,7 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 		}
 	}
 	if (sh->cfg.volt_regulator == SSV6XXX_VOLT_LDO_CONVERT) {
-		printk("Volt regulator LDO\n");
+		dev_info(sh->sc->dev, "Using LDO voltage regulator\n");
 		for (i = 0;
 		     i <
 		     sizeof(ssv6200_rf_tbl) / sizeof(struct ssv6xxx_dev_table);
@@ -1019,7 +988,7 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 			}
 		}
 	} else if (sh->cfg.volt_regulator == SSV6XXX_VOLT_DCDC_CONVERT) {
-		printk("Volt regulator DCDC\n");
+		dev_info(sh->sc->dev, "Using DCDC buck regulator\n");
 		for (i = 0;
 		     i <
 		     sizeof(ssv6200_rf_tbl) / sizeof(struct ssv6xxx_dev_table);
@@ -1030,8 +999,7 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 			}
 		}
 	} else {
-		printk("Illegal volt regulator setting !![No XX.cfg]\n");
-		printk("default value is SSV6XXX_VOLT_DCDC_CONVERT!!\n");
+		dev_warn(sh->sc->dev, "Illegal regulator setting, using DCDC buck as default\n");
 	}
 	while (ssv_cfg.configuration[x][0]) {
 		for (i = 0;
@@ -1063,9 +1031,9 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 		ret = SMAC_REG_WRITE(sh, ADR_PHY_EN_1, 0x00000000);
 	SMAC_REG_READ(sh, ADR_PHY_EN_0, &regval);
 	if (regval & (1 << RG_RF_BB_CLK_SEL_SFT)) {
-		printk("already do clock switch\n");
+		dev_dbg(sh->sc->dev, "already do clock switch\n");
 	} else {
-		printk("reset PLL\n");
+		dev_dbg(sh->sc->dev, "reset PLL\n");
 		SMAC_REG_READ(sh, ADR_DPLL_CP_PFD_REGISTER, &regval);
 		regval |=
 		    ((1 << RG_DP_BBPLL_PD_SFT) |
@@ -1083,11 +1051,8 @@ static int ssv6xxx_init_hw(struct ssv_hw *sh)
 		ret = SMAC_REG_WRITE(sh, ADR_TRX_DUMMY_REGISTER, 0xEAAAAAAA);
 	SMAC_REG_READ(sh, ADR_TRX_DUMMY_REGISTER, &regval);
 	if (regval != 0xEAAAAAAA) {
-		printk("@@@@@@@@@@@@\n");
-		printk(" SDIO issue -- please check 0xCE01008C %08x!!\n",
-		       regval);
-		printk(" It shouble be 0xEAAAAAAA!!\n");
-		printk("@@@@@@@@@@@@ \n");
+		dev_warn(sh->sc->dev, "Unexpected register value\n");
+		WARN_ON(1);
 	}
 	if (ret == 0)
 		ret = SMAC_REG_WRITE(sh, ADR_PAD53, 0x21);
@@ -1124,7 +1089,7 @@ static void ssv6xxx_check_mac2(struct ssv_hw *sh)
 		if ((ssv_cfg.maddr[0][i] & addr_mask[i]) !=
 		    (ssv_cfg.maddr[1][i] & addr_mask[i])) {
 			invalid = true;
-			printk(" i %d , mac1[i] %x, mac2[i] %x, mask %x \n", i,
+			dev_dbg(sh->sc->dev, " i %d , mac1[i] %x, mac2[i] %x, mask %x \n", i,
 			       ssv_cfg.maddr[0][i], ssv_cfg.maddr[1][i],
 			       addr_mask[i]);
 			break;
@@ -1140,8 +1105,8 @@ static void ssv6xxx_check_mac2(struct ssv_hw *sh)
 			ssv_cfg.maddr[1][5] = temp;
 			sh->cfg.maddr[0][5] = ssv_cfg.maddr[0][5];
 		}
-		printk("MAC 2 address invalid!!\n");
-		printk("After modification, MAC1 %pM, MAC2 %pM\n",
+		dev_warn(sh->sc->dev, "MAC 2 address invalid!!\n");
+		dev_warn(sh->sc->dev, "After modification, MAC1 %pM, MAC2 %pM\n",
 		       ssv_cfg.maddr[0], ssv_cfg.maddr[1]);
 	}
 }
@@ -1177,14 +1142,14 @@ static int ssv6xxx_read_configuration(struct ssv_hw *sh)
 	else if (ssv_cfg.crystal_type == 24)
 		sh->cfg.crystal_type = SSV6XXX_IQK_CFG_XTAL_24M;
 	else {
-		printk("Please redefine xtal_clock(wifi.cfg)!!\n");
+		dev_warn(sh->sc->dev, "Please redefine xtal_clock(wifi.cfg)!!\n");
 		WARN_ON(1);
 		return 1;
 	}
 	if (ssv_cfg.volt_regulator < 2)
 		sh->cfg.volt_regulator = ssv_cfg.volt_regulator;
 	else {
-		printk("Please redefine volt_regulator(wifi.cfg)!!\n");
+		dev_warn(sh->sc->dev, "Please redefine volt_regulator(wifi.cfg)!!\n");
 		WARN_ON(1);
 		return 1;
 	}
@@ -1265,7 +1230,7 @@ static int ssv6xxx_init_device(struct ssv_softc *sc, const char *name)
 		return error;
 	}
 	if ((error = ieee80211_register_hw(hw)) != 0) {
-		printk(KERN_ERR "Failed to register w. %d.\n", error);
+		dev_err(sc->dev, "Failed to register ieee80211 wireless device. ret=%d.\n", error);
 		ssv6xxx_deinit_hw(sc);
 		ssv6xxx_deinit_softc(sc);
 		ssv6xxx_hci_deregister();
@@ -1280,7 +1245,7 @@ static int ssv6xxx_init_device(struct ssv_softc *sc, const char *name)
 
 static void ssv6xxx_deinit_device(struct ssv_softc *sc)
 {
-	printk("%s(): \n", __FUNCTION__);
+	dev_dbg(sc->dev, "%s(): \n", __FUNCTION__);
 #ifdef CONFIG_SSV6XXX_DEBUGFS
 	ssv6xxx_deinit_debugfs(sc);
 #endif
@@ -1308,10 +1273,9 @@ int ssv6xxx_dev_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no platform data specified!\n");
 		return -EINVAL;
 	}
-	printk("%s(): ssv6200 device found !\n", __FUNCTION__);
 	hw = ieee80211_alloc_hw(sizeof(struct ssv_softc), &ssv6200_ops);
 	if (hw == NULL) {
-		dev_err(&pdev->dev, "No memory for ieee80211_hw\n");
+		dev_err(&pdev->dev, "Could not allocate memory for ieee80211 wireless device\n");
 		return -ENOMEM;
 	}
 	SET_IEEE80211_DEV(hw, &pdev->dev);
@@ -1342,11 +1306,11 @@ int ssv6xxx_dev_remove(struct platform_device *pdev)
 {
 	struct ieee80211_hw *hw = dev_get_drvdata(&pdev->dev);
 	struct ssv_softc *softc = hw->priv;
-	printk("ssv6xxx_dev_remove(): pdev=%p, hw=%p\n", pdev, hw);
+	dev_dbg(&pdev->dev, "ssv6xxx_dev_remove(): pdev=%p, hw=%p\n", pdev, hw);
 	ssv6xxx_deinit_device(softc);
-	printk("ieee80211_free_hw(): \n");
+	dev_dbg(&pdev->dev, "ieee80211_free_hw(): \n");
 	ieee80211_free_hw(hw);
-	pr_info("ssv6200: Driver unloaded\n");
+	dev_info(&pdev->dev, "driver unloaded\n");
 	return 0;
 }
 
