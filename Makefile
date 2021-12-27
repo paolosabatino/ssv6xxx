@@ -68,9 +68,12 @@ OBJS := ssvdevice/ssvdevice.c \
 	smac/efuse.c \
 	smac/ssv_pm.c \
 	smac/sar.c \
-	smac/ssv_cfgvendor.c \
 	hwif/sdio/sdio.c \
 	ssv6051-generic-wlan.c
+
+ifeq ($(findstring -DCONFIG_SSV_VENDOR_EXT_SUPPORT, $(ccflags-y)), -DCONFIG_SSV_VENDOR_EXT_SUPPORT)
+OBJS +=	smac/ssv_cfgvendor.c
+endif
 
 ifeq ($(findstring -DCONFIG_SSV_SMARTLINK, $(ccflags-y)), -DCONFIG_SSV_SMARTLINK)
 OBJS += smac/smartlink.c

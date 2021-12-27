@@ -348,7 +348,7 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 #endif
 #endif
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 14, 0)) || defined(CONFIG_SSV_VENDOR_EXT_SUPPORT)
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 14, 0)) && defined(CONFIG_SSV_VENDOR_EXT_SUPPORT)
     {
         int err = 0;
         struct ssv_softc *softc = (struct ssv_softc *)hw->priv;
