@@ -291,19 +291,22 @@ static void ssv6xxx_set_80211_hw_capab(struct ssv_softc *sc)
 	hw->wiphy->wowlan = &wowlan_support;
 #endif
 
-	{
-		int err = 0;
-		struct ssv_softc *softc = (struct ssv_softc *)hw->priv;
-		if (softc) {
-			set_wiphy_dev(hw->wiphy, softc->dev);
-			*((struct ssv_softc **)wiphy_priv(hw->wiphy)) = softc;
-		}
-		printk("Registering Vendor80211\n");
-		err = ssv_cfgvendor_attach(hw->wiphy);
-		if (unlikely(err < 0)) {
-			printk("Couldn not attach vendor commands (%d)\n", err);
-		}
-	}
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 14, 0)) && defined(CONFIG_SSV_VENDOR_EXT_SUPPORT)
+    {
+        int err = 0;
+        struct ssv_softc *softc = (struct ssv_softc *)hw->priv;
+        if (softc)
+        {
+            set_wiphy_dev(hw->wiphy, softc->dev);
+            *((struct ssv_softc **)wiphy_priv(hw->wiphy)) = softc;
+        }
+       	printk("Registering Vendor80211\n");
+       	err = ssv_cfgvendor_attach(hw->wiphy);
+       	if (unlikely(err < 0)) {
+       		printk("Couldn not attach vendor commands (%d)\n", err);
+       	}
+    }
+#endif /* (LINUX_VERSION_CODE > KERNEL_VERSION(3, 14, 0)) || defined(WL_VENDOR_EXT_SUPPORT) */
 }
 
 void ssv6xxx_watchdog_restart_hw(struct ssv_softc *sc)

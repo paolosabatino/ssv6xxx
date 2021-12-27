@@ -19,7 +19,6 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/slab.h>
-#include <linux/proc_fs.h>
 #include <asm/uaccess.h>
 #include <linux/errno.h>
 #include "ssv_cmd.h"
@@ -209,14 +208,6 @@ static const struct file_operations ssv6xxx_dbg_fops = {
 	.write = ssv6xxx_dbg_write,
 };
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(5,6,0)
-static const struct proc_ops ssv6xxx_dbg_proc_ops = {
-	.proc_open = ssv6xxx_dbg_open,
-	.proc_read = ssv6xxx_dbg_read,
-	.proc_write = ssv6xxx_dbg_write,
-};
-#endif
-
 extern int ssv6xxx_hci_init(void);
 extern void ssv6xxx_hci_exit(void);
 extern int ssv6xxx_init(void);
@@ -242,19 +233,7 @@ int ssvdevice_init(void)
 	debugfs_create_file(DEBUG_CMD_ENTRY, S_IRUGO | S_IWUSR, debugfs, NULL,
 			    &ssv6xxx_dbg_fops);
 #endif
-	procfs = proc_mkdir(DEBUG_DIR_ENTRY, NULL);
-	if (!procfs)
-		return -ENOMEM;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(5,6,0)
-	proc_create(DEBUG_CMD_ENTRY, S_IRUGO | S_IWUGO, procfs,
-		    &ssv6xxx_dbg_proc_ops);
-#else
-	proc_create(DEBUG_CMD_ENTRY, S_IRUGO | S_IWUGO, procfs,
-		    &ssv6xxx_dbg_fops);
-#endif
-
 	sta_cfg_set(stacfgpath);
-
 	{
 		int ret;
 		ret = ssv6xxx_hci_init();
@@ -280,9 +259,6 @@ void ssvdevice_exit(void)
 #ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(debugfs);
 #endif
-
-	remove_proc_entry(DEBUG_CMD_ENTRY, procfs);
-	remove_proc_entry(DEBUG_DIR_ENTRY, NULL);
 	kfree(ssv6xxx_cmd_buf);
 }
 
