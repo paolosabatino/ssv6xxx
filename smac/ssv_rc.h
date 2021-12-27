@@ -15,7 +15,7 @@
  */
 
 #ifndef _SSV_RC_H_
-#define _SSV_RC_H_ 
+#define _SSV_RC_H_
 #include "ssv_rc_common.h"
 #define RC_PID_REPORT_INTERVAL 40
 #define RC_PID_INTERVAL 125
@@ -34,16 +34,17 @@
 struct ssv_softc;
 struct ssv_rc_rate *ssv6xxx_rc_get_rate(int rc_index);
 void ssv6xxx_rc_hw_rate_idx(struct ssv_softc *sc,
-            struct ieee80211_tx_info *info, struct ssv_rate_info *sr);
-#ifdef RATE_CONTROL_REALTIME_UPDATA
-u8 ssv6xxx_rc_hw_rate_update_check(struct sk_buff *skb, struct ssv_softc *sc, u32 do_rts_cts);
-#endif
+			    struct ieee80211_tx_info *info,
+			    struct ssv_rate_info *sr);
+u8 ssv6xxx_rc_hw_rate_update_check(struct sk_buff *skb, struct ssv_softc *sc,
+				   u32 do_rts_cts);
 void ssv6xxx_rc_mac8011_rate_idx(struct ssv_softc *sc, int hw_rate_idx,
-                struct ieee80211_rx_status *rxs);
+				 struct ieee80211_rx_status *rxs);
 void ssv6xxx_rc_hw_reset(struct ssv_softc *sc, int rc_idx, int hwidx);
 void ssv6xxx_rc_update_basic_rate(struct ssv_softc *sc, u32 basic_rates);
 int ssv6xxx_rate_control_register(void);
 void ssv6xxx_rate_control_unregister(void);
-void ssv6xxx_rc_rx_data_handler(struct ieee80211_hw *hw, struct sk_buff *skb, u32 rate_index);
+void ssv6xxx_rc_rx_data_handler(struct ieee80211_hw *hw, struct sk_buff *skb,
+				u32 rate_index);
 int pide_frame_duration(size_t len, int rate, int short_preamble, int flags);
 #endif

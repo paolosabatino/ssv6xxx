@@ -15,7 +15,7 @@
  */
 
 #ifndef _SSV_FIRMWARE_VERSION_H_
-#define _SSV_FIRMWARE_VERSION_H_ 
+#define _SSV_FIRMWARE_VERSION_H_
 static u32 ssv_firmware_version = 16380;
 #define SSV_FIRMWARE_URl "http://192.168.15.30/svn/software/wifi/tag/smac-release-tag/6051.Q0.1009.21.000000/ssv6xxx/smac/firmware"
 #define FIRMWARE_COMPILERHOST "ssv-ThinkPad-X230"

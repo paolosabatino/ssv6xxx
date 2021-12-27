@@ -15,7 +15,7 @@
  */
 
 #ifndef CABRIO_H
-#define CABRIO_H 
+#define CABRIO_H
 #define SSV_VENDOR_ID 0x3030
 #define SSV_CABRIO_DEVID 0x3030
 #define SSV_SUBVENDOR_ID_NOG 0x0e11

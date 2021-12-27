@@ -76,19 +76,18 @@ struct ssv6xxx_sdio_glue {
 	bool dev_ready;
 };
 
-static const struct sdio_device_id ssv6xxx_sdio_devices[] =
-{
+static const struct sdio_device_id ssv6xxx_sdio_devices[] = {
 	{SDIO_DEVICE(SSV_VENDOR_ID, SSV_CABRIO_DEVID)},
 	{}
 };
+
 MODULE_DEVICE_TABLE(sdio, ssv6xxx_sdio_devices);
 
 static bool ssv6xxx_is_ready(struct device *child)
 {
 	struct ssv6xxx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	if ((wlan_data.is_enabled == false) ||
-        (glue == NULL) ||
-        (glue->dev_ready == false))
+	    (glue == NULL) || (glue->dev_ready == false))
 		return false;
 
 	return glue->dev_ready;
@@ -732,10 +731,10 @@ ssv6xxx_sdio_read(struct device *child, void *buf, size_t *size)
 			dev_err(child->parent,
 				"sdio read hight len failed ret[%d]\n", ret);
 		if (ret == 0) {
-			*size =
-			    *size | ((uint)
-				     sdio_readb(func, REG_CARD_PKT_LEN_1, &ret)
-				     << 0x8);
+			*size = *size | ((uint)
+					 sdio_readb(func, REG_CARD_PKT_LEN_1,
+						    &ret)
+					 << 0x8);
 			if (ret)
 				dev_err(child->parent,
 					"sdio read low len failed ret[%d]\n",
@@ -778,7 +777,7 @@ ssv6xxx_sdio_write(struct device *child, void *buf, size_t len, u8 queue_num)
 		} else
 			tempPointer = buf;
 
-        func = dev_to_sdio_func(glue->dev);
+		func = dev_to_sdio_func(glue->dev);
 		sdio_claim_host(func);
 		writesize = sdio_align_size(func, len);
 		do {
@@ -975,26 +974,13 @@ ssv6xxx_sdio_read_parameter(struct sdio_func *func,
 			       (8 * 2));
 	dev_err(&func->dev, "dataIOPort 0x%x regIOPort 0x%x\n",
 		glue->dataIOPort, glue->regIOPort);
-#ifdef CONFIG_PLATFORM_SDIO_BLOCK_SIZE
 	err_ret = sdio_set_block_size(func, CONFIG_PLATFORM_SDIO_BLOCK_SIZE);
-#else
-	err_ret = sdio_set_block_size(func, SDIO_DEF_BLOCK_SIZE);
-#endif
 	if (err_ret != 0) {
 		printk("SDIO setting SDIO_DEF_BLOCK_SIZE fail!!\n");
 	}
-#ifdef CONFIG_PLATFORM_SDIO_OUTPUT_TIMING
 	sdio_writeb(func, CONFIG_PLATFORM_SDIO_OUTPUT_TIMING,
 		    REG_OUTPUT_TIMING_REG, &err_ret);
-#else
-	sdio_writeb(func, SDIO_DEF_OUTPUT_TIMING, REG_OUTPUT_TIMING_REG,
-		    &err_ret);
-#endif
 	sdio_writeb(func, 0x00, REG_Fn1_STATUS, &err_ret);
-#if 0
-	sdio_writeb(func, SDIO_TX_ALLOC_SIZE_SHIFT | SDIO_TX_ALLOC_ENABLE,
-		    REG_SDIO_TX_ALLOC_SHIFT, &err_ret);
-#endif
 	sdio_release_host(func);
 }
 
@@ -1338,7 +1324,7 @@ static void ssv6xxx_sdio_remove(struct sdio_func *func)
 static int ssv6xxx_sdio_trigger_pmu(struct device *dev)
 {
 
-    int ret = 0;
+	int ret = 0;
 
 #ifdef CONFIG_PM
 	struct sdio_func *func = dev_to_sdio_func(dev);
@@ -1360,7 +1346,7 @@ static int ssv6xxx_sdio_trigger_pmu(struct device *dev)
 	host_cmd->h_cmd = (u8) SSV6XXX_HOST_CMD_PS;
 	host_cmd->len = sizeof(struct cfg_host_cmd);
 
-    host_cmd->dummy = 0;
+	host_cmd->dummy = 0;
 
 	{
 		tempPointer = glue->cmd_skb->data;
@@ -1405,7 +1391,7 @@ static void ssv6xxx_sdio_reset(struct device *child)
 	ssv6xxx_do_sdio_wakeup(func);
 #endif
 
-    return;
+	return;
 
 }
 
@@ -1464,7 +1450,7 @@ struct sdio_driver ssv6xxx_sdio_driver = {
 #ifdef CONFIG_PM
 	.drv = {
 		.pm = &ssv6xxx_sdio_pm_ops,
-	},
+		},
 #endif
 };
 

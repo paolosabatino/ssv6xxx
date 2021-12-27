@@ -15,7 +15,7 @@
  */
 
 #ifndef _SSV_CMD_H_
-#define _SSV_CMD_H_ 
+#define _SSV_CMD_H_
 #define CLI_BUFFER_SIZE 256
 #define CLI_ARG_SIZE 10
 #define CLI_RESULT_BUF_SIZE (4096)
@@ -24,15 +24,15 @@
 #define DEBUG_CMD_ENTRY "ssv_cmd"
 #define MAX_CHARS_PER_LINE 256
 struct ssv_cmd_table {
-    const char *cmd;
-    int (*cmd_func_ptr)(int, char **);
-    const char *usage;
+	const char *cmd;
+	int (*cmd_func_ptr)(int, char **);
+	const char *usage;
 };
 struct ssv6xxx_cfg_cmd_table {
-    u8 *cfg_cmd;
-    void *var;
-    u32 arg;
-    int (*translate_func)(u8 *, void *, u32);
+	u8 *cfg_cmd;
+	void *var;
+	u32 arg;
+	int (*translate_func)(u8 *, void *, u32);
 };
 #define SSV_REG_READ1(ops,reg,val) \
         (ops)->ifops->readreg((ops)->dev, reg, val)

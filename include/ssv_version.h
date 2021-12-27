@@ -10,4 +10,3 @@ static u32 ssv_root_version = 16529;
 #define COMPILEROSARCH "x86_64-linux-gnu-thread-multi"
 
 #endif
-

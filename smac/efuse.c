@@ -148,13 +148,15 @@ static u16 parser_efuse(u8 * pbuf, u8 * mac_addr)
 				rtemp8++;
 				SSV_EFUSE_ITEM_TABLE[idx].value =
 				    (u16) ((u8) (*((u16 *) rtemp8)) &
-					   ((1 << SSV_EFUSE_ITEM_TABLE[idx].
-					     byte_cnts) - 1));
+					   ((1 <<
+					     SSV_EFUSE_ITEM_TABLE
+					     [idx].byte_cnts) - 1));
 			} else {
 				SSV_EFUSE_ITEM_TABLE[idx].value =
 				    (u16) ((u8) (*((u16 *) rtemp8) >> 4) &
-					   ((1 << SSV_EFUSE_ITEM_TABLE[idx].
-					     byte_cnts) - 1));
+					   ((1 <<
+					     SSV_EFUSE_ITEM_TABLE
+					     [idx].byte_cnts) - 1));
 			}
 			efuse_real_content_len +=
 			    (SSV_EFUSE_ITEM_TABLE[idx].offset +
@@ -297,13 +299,14 @@ void efuse_read_all_map(struct ssv_hw *sh)
 					sh->cfg.maddr[0][0] =
 					    sh->cfg.maddr[0][0] & 0xF0;
 					addr_increase_copy(&sh->cfg.maddr[1][0],
-							   &sh->cfg.
-							   maddr[0][0]);
+							   &sh->
+							   cfg.maddr[0][0]);
 					if (sh->cfg.mac_output_path[0] != 0x00)
-						write_mac_to_file(sh->cfg.
-								  mac_output_path,
-								  &sh->cfg.
-								  maddr[0][0]);
+						write_mac_to_file(sh->
+								  cfg.mac_output_path,
+								  &sh->
+								  cfg.maddr[0]
+								  [0]);
 				}
 			}
 			break;
@@ -313,7 +316,7 @@ void efuse_read_all_map(struct ssv_hw *sh)
 			break;
 		}
 		pr_info("MAC address from Software MAC mode[%d]\n",
-		       sh->cfg.mac_address_mode);
+			sh->cfg.mac_address_mode);
 	}
  Done:
 	pr_info("EFUSE configuration\n");
@@ -321,7 +324,7 @@ void efuse_read_all_map(struct ssv_hw *sh)
 	pr_debug("r_calbration_result- %x\n", ssv_cfg.r_calbration_result);
 	pr_debug("sar_result- %x\n", ssv_cfg.sar_result);
 	pr_debug("crystal_frequency_offset- %x\n",
-	       ssv_cfg.crystal_frequency_offset);
+		 ssv_cfg.crystal_frequency_offset);
 	pr_debug("tx_power_index_1- %x\n", ssv_cfg.tx_power_index_1);
 	pr_debug("tx_power_index_2- %x\n", ssv_cfg.tx_power_index_2);
 	pr_debug("MAC address - %pM\n", rom_mac0);

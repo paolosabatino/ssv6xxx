@@ -15,7 +15,7 @@
  */
 
 #ifndef _SSV_CFG_H_
-#define _SSV_CFG_H_ 
+#define _SSV_CFG_H_
 #define SSV6200_HW_CAP_HT 0x00000001
 #define SSV6200_HW_CAP_GF 0x00000002
 #define SSV6200_HW_CAP_2GHZ 0x00000004
@@ -30,31 +30,31 @@
 #define SSV6200_HW_CAP_TDLS 0x00000800
 #define EXTERNEL_CONFIG_SUPPORT 64
 struct ssv6xxx_cfg {
-    u32 hw_caps;
-    u32 def_chan;
-    u32 crystal_type;
-    u32 volt_regulator;
-    u32 force_chip_identity;
-    u8 maddr[2][6];
-    u32 n_maddr;
-    u32 use_wpa2_only;
-    u32 ignore_reset_in_ap;
-    u32 r_calbration_result;
-    u32 sar_result;
-    u32 crystal_frequency_offset;
-    u32 tx_power_index_1;
-    u32 tx_power_index_2;
-    u32 chip_identity;
-    u32 wifi_tx_gain_level_gn;
-    u32 wifi_tx_gain_level_b;
-    u32 rssi_ctl;
-    u32 sr_bhvr;
-    u32 configuration[EXTERNEL_CONFIG_SUPPORT+1][2];
-    u8 firmware_path[128];
-    u8 flash_bin_path[128];
-    u8 mac_address_path[128];
-    u8 mac_output_path[128];
-    u32 ignore_efuse_mac;
-    u32 mac_address_mode;
+	u32 hw_caps;
+	u32 def_chan;
+	u32 crystal_type;
+	u32 volt_regulator;
+	u32 force_chip_identity;
+	u8 maddr[2][6];
+	u32 n_maddr;
+	u32 use_wpa2_only;
+	u32 ignore_reset_in_ap;
+	u32 r_calbration_result;
+	u32 sar_result;
+	u32 crystal_frequency_offset;
+	u32 tx_power_index_1;
+	u32 tx_power_index_2;
+	u32 chip_identity;
+	u32 wifi_tx_gain_level_gn;
+	u32 wifi_tx_gain_level_b;
+	u32 rssi_ctl;
+	u32 sr_bhvr;
+	u32 configuration[EXTERNEL_CONFIG_SUPPORT + 1][2];
+	u8 firmware_path[128];
+	u8 flash_bin_path[128];
+	u8 mac_address_path[128];
+	u8 mac_output_path[128];
+	u32 ignore_efuse_mac;
+	u32 mac_address_mode;
 };
 #endif

@@ -24,52 +24,36 @@
 #define DEFAULT_CFG_BIN_NAME "/tmp/flash.bin"
 #define SEC_CFG_BIN_NAME "/system/etc/wifi/ssv6051/flash.bin"
 enum {
-    SAR_LVL_LT,
-    SAR_LVL_RT,
-    SAR_LVL_HT,
-    SAR_LVL_INVALID
+	SAR_LVL_LT,
+	SAR_LVL_RT,
+	SAR_LVL_HT,
+	SAR_LVL_INVALID
 };
 
 struct flash_thermal_info {
-    u32 rt;
-    u32 lt;
-    u32 ht;
-    u8 lt_ts;
-    u8 ht_ts;
-    u16 reserve;
+	u32 rt;
+	u32 lt;
+	u32 ht;
+	u8 lt_ts;
+	u8 ht_ts;
+	u16 reserve;
 };
 typedef struct t_WIFI_FLASH_CCFG {
-    //16bytes
-    u16 chip_id;
-    u16 sid;
-    u32 date;
-    u16 version;
-    u16 reserve_1;
-    u32 reserve_2;
-    //16bytes
-    struct flash_thermal_info sar_rlh[2];
-#if 0
-    u32 x_rt;
-    u32 x_lt;
-    u32 x_ht;
-    u8 x_tt_lt;
-    u8 x_tt_ht;
-    u16 reserve_3;
-    //16bytes
-    u32 g_rt;
-    u32 g_lt;
-    u32 g_ht;
-    u8 g_tt_lt;
-    u8 g_tt_ht;
-    u16 reserve_4;
-#endif
+	//16bytes
+	u16 chip_id;
+	u16 sid;
+	u32 date;
+	u16 version;
+	u16 reserve_1;
+	u32 reserve_2;
+	//16bytes
+	struct flash_thermal_info sar_rlh[2];
 } WIFI_FLASH_CCFG;
 
-
 struct t_sar_info {
-    u32 lvl;
-    u32 value;
-    struct flash_thermal_info *p;
+	u32 lvl;
+	u32 value;
+	struct flash_thermal_info *p;
 };
 
 void thermal_monitor(struct work_struct *work);

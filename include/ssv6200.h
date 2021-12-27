@@ -15,7 +15,7 @@
  */
 
 #ifndef _SSV6200_H_
-#define _SSV6200_H_ 
+#define _SSV6200_H_
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <net/mac80211.h>
@@ -27,7 +27,6 @@
 #include <hwif/hwif.h>
 #include <hci/ssv_hci.h>
 #include "ssv6200_common.h"
-#ifdef SSV6200_ECO
 #define SSV6200_TOTAL_ID 128
 #ifndef HUW_DRV
 #define SSV6200_ID_TX_THRESHOLD 19
@@ -51,27 +50,6 @@
 #define SSV6200_TX_LOWTHRESHOLD_PAGE_TRIGGER 45
 #define SSV6200_TX_LOWTHRESHOLD_ID_TRIGGER 2
 #endif
-#else
-#undef SSV6200_ID_TX_THRESHOLD
-#undef SSV6200_ID_RX_THRESHOLD
-#undef SSV6200_PAGE_TX_THRESHOLD
-#undef SSV6200_PAGE_RX_THRESHOLD
-#undef SSV6200_TX_LOWTHRESHOLD_PAGE_TRIGGER
-#undef SSV6200_TX_LOWTHRESHOLD_ID_TRIGGER
-#define SSV6200_ID_TX_THRESHOLD 63
-#define SSV6200_ID_RX_THRESHOLD 63
-#ifdef PREFER_RX
-#define SSV6200_PAGE_TX_THRESHOLD (126-24)
-#define SSV6200_PAGE_RX_THRESHOLD (126+24)
-#else
-#undef SSV6200_PAGE_TX_THRESHOLD
-#undef SSV6200_PAGE_RX_THRESHOLD
-#define SSV6200_PAGE_TX_THRESHOLD 126
-#define SSV6200_PAGE_RX_THRESHOLD 126
-#endif
-#define SSV6200_TX_LOWTHRESHOLD_PAGE_TRIGGER (SSV6200_PAGE_TX_THRESHOLD/2)
-#define SSV6200_TX_LOWTHRESHOLD_ID_TRIGGER 2
-#endif
 #define SSV6200_ID_NUMBER (128)
 #define PACKET_ADDR_2_ID(addr) ((addr >> 16) & 0x7F)
 #define SSV6200_ID_AC_RESERVED 1
@@ -87,12 +65,12 @@
 #define SSV6200_WLAN_REMAIN_TIME 0
 #define BT_2WIRE_EN_MSK 0x00000400
 struct txResourceControl {
-    u32 txUsePage:8;
-    u32 txUseID:6;
-    u32 edca0:4;
-    u32 edca1:4;
-    u32 edca2:5;
-    u32 edca3:5;
+	u32 txUsePage:8;
+	u32 txUseID:6;
+	u32 edca0:4;
+	u32 edca1:4;
+	u32 edca2:5;
+	u32 edca3:5;
 };
 #include <ssv_cfg.h>
 #endif

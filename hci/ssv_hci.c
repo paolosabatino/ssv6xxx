@@ -151,8 +151,8 @@ static int ssv6xxx_hci_enqueue(struct sk_buff *skb, int txqid, u32 tx_flags)
 	qlen = (int)skb_queue_len(&hw_txq->qhead);
 	if (!(tx_flags & HCI_FLAGS_NO_FLOWCTRL)) {
 		if (skb_queue_len(&hw_txq->qhead) >= hw_txq->max_qsize) {
-			ctrl_hci->shi->hci_tx_flow_ctrl_cb(ctrl_hci->shi->
-							   tx_fctrl_cb_args,
+			ctrl_hci->shi->hci_tx_flow_ctrl_cb(ctrl_hci->
+							   shi->tx_fctrl_cb_args,
 							   hw_txq->txq_no, true,
 							   2000);
 		}
@@ -175,8 +175,8 @@ static int ssv6xxx_hci_enqueue(struct sk_buff *skb, int txqid, u32 tx_flags)
 			smp_mb();
 			spin_unlock_irqrestore(&ctrl_hci->int_lock, flags);
 			mutex_unlock(&ctrl_hci->hci_mutex);
-			ctrl_hci->shi->if_ops->trigger_tx_rx(ctrl_hci->shi->
-							     dev);
+			ctrl_hci->shi->if_ops->trigger_tx_rx(ctrl_hci->
+							     shi->dev);
 		}
 	} else {
 		spin_unlock_irqrestore(&ctrl_hci->int_lock, flags);
@@ -209,8 +209,8 @@ static int ssv6xxx_hci_txq_flush(u32 txq_mask)
 		hw_txq = &ctrl_hci->hw_txq[txqid];
 		while ((skb = skb_dequeue(&hw_txq->qhead))) {
 			ctrl_hci->shi->hci_tx_buf_free_cb(skb,
-							  ctrl_hci->shi->
-							  tx_buf_free_args);
+							  ctrl_hci->
+							  shi->tx_buf_free_args);
 		}
 	}
 	return 0;
@@ -300,8 +300,8 @@ static int ssv6xxx_hci_xmit(struct ssv_hw_txq *hw_txq, int max_count,
 		if (ctrl_hci->shi->hci_skb_update_cb != NULL
 		    && tx_desc->reason != ID_TRAP_SW_TXTPUT) {
 			ctrl_hci->shi->hci_skb_update_cb(skb,
-							 ctrl_hci->shi->
-							 skb_update_args);
+							 ctrl_hci->
+							 shi->skb_update_args);
 		}
 
 		ret =
@@ -320,12 +320,10 @@ static int ssv6xxx_hci_xmit(struct ssv_hw_txq *hw_txq, int max_count,
 
 		if (!(hw_txq->tx_flags & HCI_FLAGS_NO_FLOWCTRL)) {
 			if (skb_queue_len(&hw_txq->qhead) < hw_txq->resum_thres) {
-				ctrl_hci->shi->hci_tx_flow_ctrl_cb(ctrl_hci->
-								   shi->
-								   tx_fctrl_cb_args,
-								   hw_txq->
-								   txq_no,
-								   false, 2000);
+				ctrl_hci->shi->
+				    hci_tx_flow_ctrl_cb
+				    (ctrl_hci->shi->tx_fctrl_cb_args,
+				     hw_txq->txq_no, false, 2000);
 			}
 		}
 	}
@@ -406,8 +404,8 @@ static int ssv6xxx_hci_tx_handler(void *dev, int max_count)
 	if ((ctrl_hci->shi->hci_tx_q_empty_cb != NULL)
 	    && (skb_queue_len(&hw_txq->qhead) == 0)) {
 		ctrl_hci->shi->hci_tx_q_empty_cb(hw_txq->txq_no,
-						 ctrl_hci->shi->
-						 tx_q_empty_args);
+						 ctrl_hci->
+						 shi->tx_q_empty_args);
 	}
 	return tx_count;
 }
@@ -769,7 +767,6 @@ static int _do_tx(struct ssv6xxx_hci_ctrl *hctl, u32 status)
 	return tx_count;
 }
 
-
 irqreturn_t ssv6xxx_hci_isr(int irq, void *args)
 {
 	struct ssv6xxx_hci_ctrl *hctl = args;
@@ -903,7 +900,7 @@ int ssv6xxx_hci_register(struct ssv6xxx_hci_info *shi)
 	mutex_init(&ctrl_hci->hci_mutex);
 	spin_lock_init(&ctrl_hci->int_lock);
 
-    for (i = 0; i < SSV_HW_TXQ_NUM; i++) {
+	for (i = 0; i < SSV_HW_TXQ_NUM; i++) {
 		memset(&ctrl_hci->hw_txq[i], 0, sizeof(struct ssv_hw_txq));
 		skb_queue_head_init(&ctrl_hci->hw_txq[i].qhead);
 		ctrl_hci->hw_txq[i].txq_no = (u32) i;
@@ -915,7 +912,7 @@ int ssv6xxx_hci_register(struct ssv6xxx_hci_info *shi)
 	INIT_WORK(&ctrl_hci->hci_rx_work, ssv6xxx_hci_rx_work);
 	INIT_WORK(&ctrl_hci->hci_tx_work, ssv6xxx_hci_tx_work);
 	ctrl_hci->int_mask = SSV6XXX_INT_RX | SSV6XXX_INT_RESOURCE_LOW;
-    ctrl_hci->int_status = 0;
+	ctrl_hci->int_status = 0;
 	HCI_IRQ_SET_MASK(ctrl_hci, 0xFFFFFFFF);
 	ssv6xxx_hci_irq_disable();
 	HCI_IRQ_REQUEST(ctrl_hci, ssv6xxx_hci_isr);
