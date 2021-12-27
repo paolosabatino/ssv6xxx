@@ -48,25 +48,25 @@ typedef enum {
 
 	/* define all vendor startup commands between 0x0 and 0x0FFF */
 	VENDOR_NL80211_SUBCMD_RANGE_START = 0x0001,
-	VENDOR_NL80211_SUBCMD_RANGE_END = 0x0FFF,
+	VENDOR_NL80211_SUBCMD_RANGE_END   = 0x0FFF,
 
 	/* define all GScan related commands between 0x1000 and 0x10FF */
 	ANDROID_NL80211_SUBCMD_GSCAN_RANGE_START = 0x1000,
-	ANDROID_NL80211_SUBCMD_GSCAN_RANGE_END = 0x10FF,
+	ANDROID_NL80211_SUBCMD_GSCAN_RANGE_END   = 0x10FF,
 
 	/* define all NearbyDiscovery related commands between 0x1100 and 0x11FF */
 	ANDROID_NL80211_SUBCMD_NBD_RANGE_START = 0x1100,
-	ANDROID_NL80211_SUBCMD_NBD_RANGE_END = 0x11FF,
+	ANDROID_NL80211_SUBCMD_NBD_RANGE_END   = 0x11FF,
 
 	/* define all RTT related commands between 0x1100 and 0x11FF */
 	ANDROID_NL80211_SUBCMD_RTT_RANGE_START = 0x1100,
-	ANDROID_NL80211_SUBCMD_RTT_RANGE_END = 0x11FF,
+	ANDROID_NL80211_SUBCMD_RTT_RANGE_END   = 0x11FF,
 
 	ANDROID_NL80211_SUBCMD_LSTATS_RANGE_START = 0x1200,
-	ANDROID_NL80211_SUBCMD_LSTATS_RANGE_END = 0x12FF,
+	ANDROID_NL80211_SUBCMD_LSTATS_RANGE_END   = 0x12FF,
 
 	ANDROID_NL80211_SUBCMD_TDLS_RANGE_START = 0x1300,
-	ANDROID_NL80211_SUBCMD_TDLS_RANGE_END = 0x13FF,
+	ANDROID_NL80211_SUBCMD_TDLS_RANGE_END	= 0x13FF,
 	/* This is reserved for future usage */
 
 } ANDROID_VENDOR_SUB_COMMAND;
@@ -74,8 +74,7 @@ typedef enum {
 enum wl_vendor_subcmd {
 	RTK_VENDOR_SCMD_UNSPEC,
 	RTK_VENDOR_SCMD_PRIV_STR,
-	GSCAN_SUBCMD_GET_CAPABILITIES =
-	    ANDROID_NL80211_SUBCMD_GSCAN_RANGE_START,
+	GSCAN_SUBCMD_GET_CAPABILITIES = ANDROID_NL80211_SUBCMD_GSCAN_RANGE_START,
 	GSCAN_SUBCMD_SET_CONFIG,
 	GSCAN_SUBCMD_SET_SCAN_CONFIG,
 	GSCAN_SUBCMD_ENABLE_GSCAN,
@@ -90,63 +89,63 @@ enum wl_vendor_subcmd {
 	RTT_SUBCMD_SET_CONFIG = ANDROID_NL80211_SUBCMD_RTT_RANGE_START,
 	RTT_SUBCMD_CANCEL_CONFIG,
 	RTT_SUBCMD_GETCAPABILITY,
-	/* Add more sub commands here */
-	VENDOR_SUBCMD_MAX
+    /* Add more sub commands here */
+    VENDOR_SUBCMD_MAX
 };
 
 enum gscan_attributes {
-	GSCAN_ATTRIBUTE_NUM_BUCKETS = 10,
-	GSCAN_ATTRIBUTE_BASE_PERIOD,
-	GSCAN_ATTRIBUTE_BUCKETS_BAND,
-	GSCAN_ATTRIBUTE_BUCKET_ID,
-	GSCAN_ATTRIBUTE_BUCKET_PERIOD,
-	GSCAN_ATTRIBUTE_BUCKET_NUM_CHANNELS,
-	GSCAN_ATTRIBUTE_BUCKET_CHANNELS,
-	GSCAN_ATTRIBUTE_NUM_AP_PER_SCAN,
-	GSCAN_ATTRIBUTE_REPORT_THRESHOLD,
-	GSCAN_ATTRIBUTE_NUM_SCANS_TO_CACHE,
-	GSCAN_ATTRIBUTE_BAND = GSCAN_ATTRIBUTE_BUCKETS_BAND,
+    GSCAN_ATTRIBUTE_NUM_BUCKETS = 10,
+    GSCAN_ATTRIBUTE_BASE_PERIOD,
+    GSCAN_ATTRIBUTE_BUCKETS_BAND,
+    GSCAN_ATTRIBUTE_BUCKET_ID,
+    GSCAN_ATTRIBUTE_BUCKET_PERIOD,
+    GSCAN_ATTRIBUTE_BUCKET_NUM_CHANNELS,
+    GSCAN_ATTRIBUTE_BUCKET_CHANNELS,
+    GSCAN_ATTRIBUTE_NUM_AP_PER_SCAN,
+    GSCAN_ATTRIBUTE_REPORT_THRESHOLD,
+    GSCAN_ATTRIBUTE_NUM_SCANS_TO_CACHE,
+    GSCAN_ATTRIBUTE_BAND = GSCAN_ATTRIBUTE_BUCKETS_BAND,
 
-	GSCAN_ATTRIBUTE_ENABLE_FEATURE = 20,
-	GSCAN_ATTRIBUTE_SCAN_RESULTS_COMPLETE,
-	GSCAN_ATTRIBUTE_FLUSH_FEATURE,
-	GSCAN_ATTRIBUTE_ENABLE_FULL_SCAN_RESULTS,
-	GSCAN_ATTRIBUTE_REPORT_EVENTS,
-	/* remaining reserved for additional attributes */
-	GSCAN_ATTRIBUTE_NUM_OF_RESULTS = 30,
-	GSCAN_ATTRIBUTE_FLUSH_RESULTS,
-	GSCAN_ATTRIBUTE_SCAN_RESULTS,	/* flat array of wifi_scan_result */
-	GSCAN_ATTRIBUTE_SCAN_ID,	/* indicates scan number */
-	GSCAN_ATTRIBUTE_SCAN_FLAGS,	/* indicates if scan was aborted */
-	GSCAN_ATTRIBUTE_AP_FLAGS,	/* flags on significant change event */
-	GSCAN_ATTRIBUTE_NUM_CHANNELS,
-	GSCAN_ATTRIBUTE_CHANNEL_LIST,
-
-	/* remaining reserved for additional attributes */
-
-	GSCAN_ATTRIBUTE_SSID = 40,
-	GSCAN_ATTRIBUTE_BSSID,
-	GSCAN_ATTRIBUTE_CHANNEL,
-	GSCAN_ATTRIBUTE_RSSI,
-	GSCAN_ATTRIBUTE_TIMESTAMP,
-	GSCAN_ATTRIBUTE_RTT,
-	GSCAN_ATTRIBUTE_RTTSD,
+    GSCAN_ATTRIBUTE_ENABLE_FEATURE = 20,
+    GSCAN_ATTRIBUTE_SCAN_RESULTS_COMPLETE,
+    GSCAN_ATTRIBUTE_FLUSH_FEATURE,
+    GSCAN_ATTRIBUTE_ENABLE_FULL_SCAN_RESULTS,
+    GSCAN_ATTRIBUTE_REPORT_EVENTS,
+    /* remaining reserved for additional attributes */
+    GSCAN_ATTRIBUTE_NUM_OF_RESULTS = 30,
+    GSCAN_ATTRIBUTE_FLUSH_RESULTS,
+    GSCAN_ATTRIBUTE_SCAN_RESULTS,                       /* flat array of wifi_scan_result */
+    GSCAN_ATTRIBUTE_SCAN_ID,                            /* indicates scan number */
+    GSCAN_ATTRIBUTE_SCAN_FLAGS,                         /* indicates if scan was aborted */
+    GSCAN_ATTRIBUTE_AP_FLAGS,                           /* flags on significant change event */
+    GSCAN_ATTRIBUTE_NUM_CHANNELS,
+    GSCAN_ATTRIBUTE_CHANNEL_LIST,
 
 	/* remaining reserved for additional attributes */
 
-	GSCAN_ATTRIBUTE_HOTLIST_BSSIDS = 50,
-	GSCAN_ATTRIBUTE_RSSI_LOW,
-	GSCAN_ATTRIBUTE_RSSI_HIGH,
-	GSCAN_ATTRIBUTE_HOSTLIST_BSSID_ELEM,
-	GSCAN_ATTRIBUTE_HOTLIST_FLUSH,
+    GSCAN_ATTRIBUTE_SSID = 40,
+    GSCAN_ATTRIBUTE_BSSID,
+    GSCAN_ATTRIBUTE_CHANNEL,
+    GSCAN_ATTRIBUTE_RSSI,
+    GSCAN_ATTRIBUTE_TIMESTAMP,
+    GSCAN_ATTRIBUTE_RTT,
+    GSCAN_ATTRIBUTE_RTTSD,
 
-	/* remaining reserved for additional attributes */
-	GSCAN_ATTRIBUTE_RSSI_SAMPLE_SIZE = 60,
-	GSCAN_ATTRIBUTE_LOST_AP_SAMPLE_SIZE,
-	GSCAN_ATTRIBUTE_MIN_BREACHING,
-	GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_BSSIDS,
-	GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_FLUSH,
-	GSCAN_ATTRIBUTE_MAX
+    /* remaining reserved for additional attributes */
+
+    GSCAN_ATTRIBUTE_HOTLIST_BSSIDS = 50,
+    GSCAN_ATTRIBUTE_RSSI_LOW,
+    GSCAN_ATTRIBUTE_RSSI_HIGH,
+    GSCAN_ATTRIBUTE_HOSTLIST_BSSID_ELEM,
+    GSCAN_ATTRIBUTE_HOTLIST_FLUSH,
+
+    /* remaining reserved for additional attributes */
+    GSCAN_ATTRIBUTE_RSSI_SAMPLE_SIZE = 60,
+    GSCAN_ATTRIBUTE_LOST_AP_SAMPLE_SIZE,
+    GSCAN_ATTRIBUTE_MIN_BREACHING,
+    GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_BSSIDS,
+    GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_FLUSH,
+    GSCAN_ATTRIBUTE_MAX
 };
 
 enum gscan_bucket_attributes {
@@ -196,20 +195,20 @@ typedef enum wl_vendor_event {
 } wl_vendor_event_t;
 
 enum andr_wifi_feature_set_attr {
-	ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET,
-	ANDR_WIFI_ATTRIBUTE_FEATURE_SET
+    ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET,
+    ANDR_WIFI_ATTRIBUTE_FEATURE_SET
 };
 
 typedef enum wl_vendor_gscan_attribute {
 	ATTR_START_GSCAN,
 	ATTR_STOP_GSCAN,
-	ATTR_SET_SCAN_BATCH_CFG_ID,	/* set batch scan params */
-	ATTR_SET_SCAN_GEOFENCE_CFG_ID,	/* set list of bssids to track */
-	ATTR_SET_SCAN_SIGNIFICANT_CFG_ID,	/* set list of bssids, rssi threshold etc.. */
-	ATTR_SET_SCAN_CFG_ID,	/* set common scan config params here */
+	ATTR_SET_SCAN_BATCH_CFG_ID, /* set batch scan params */
+	ATTR_SET_SCAN_GEOFENCE_CFG_ID, /* set list of bssids to track */
+	ATTR_SET_SCAN_SIGNIFICANT_CFG_ID, /* set list of bssids, rssi threshold etc.. */
+	ATTR_SET_SCAN_CFG_ID, /* set common scan config params here */
 	ATTR_GET_GSCAN_CAPABILITIES_ID,
-	/* Add more sub commands here */
-	ATTR_GSCAN_MAX
+    /* Add more sub commands here */
+    ATTR_GSCAN_MAX
 } wl_vendor_gscan_attribute_t;
 
 typedef enum gscan_batch_attribute {
@@ -235,13 +234,12 @@ typedef enum gscan_complete_event {
 extern int ssv_cfgvendor_attach(struct wiphy *wiphy);
 extern int ssv_cfgvendor_detach(struct wiphy *wiphy);
 extern int ssv_cfgvendor_send_async_event(struct wiphy *wiphy,
-					  struct net_device *dev, int event_id,
-					  const void *data, int len);
+                  struct net_device *dev, int event_id, const void  *data, int len);
 #if defined(GSCAN_SUPPORT) && 0
 extern int wl_cfgvendor_send_hotlist_event(struct wiphy *wiphy,
-					   struct net_device *dev, void *data,
-					   int len, wl_vendor_event_t event);
+                struct net_device *dev, void  *data, int len, wl_vendor_event_t event);
 #endif
-#endif				/* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) || defined(RTW_VENDOR_EXT_SUPPORT) */
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) || defined(RTW_VENDOR_EXT_SUPPORT) */
 
-#endif				/* _RTW_CFGVENDOR_H_ */
+#endif /* _RTW_CFGVENDOR_H_ */
+
