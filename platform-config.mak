@@ -21,6 +21,7 @@ ccflags-y += -DCONFIG_SSV_CABRIO_E
 
 #CONFIG_SSV_SUPPORT_BTCX=y
 
+ccflags-y += -DDEBUG
 ccflags-y += -DCONFIG_SSV6200_CLI_ENABLE
 
 #PADPD

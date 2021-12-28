@@ -199,8 +199,7 @@ ssv6xxx_sdio_write_reg(struct device *child, u32 addr, u32 buf)
 		return ret;
 	if (glue != NULL) {
 		func = dev_to_sdio_func(glue->dev);
-		dev_dbg(child->parent, "sdio write reg addr 0x%x, 0x%x\n", addr,
-			buf);
+		//dev_dbg(child->parent, "sdio write reg addr 0x%x, 0x%x\n", addr, buf);
 		sdio_claim_host(func);
 		data[0] = (addr >> (0)) & 0xff;
 		data[1] = (addr >> (8)) & 0xff;

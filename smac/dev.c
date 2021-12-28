@@ -520,7 +520,7 @@ static u32 ssv6xxx_set_frame_duration(struct ieee80211_tx_info *info,
 	if ((info->control.short_preamble) ||
 	    (tx_drate->flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE))
 		ctrl_short_preamble = true;
-	dev_dbg(sc->dev, "mcs = %d, data rate idx=%d\n", tx_drate->idx, tx_drate[3].count);
+	pr_debug("mcs = %d, data rate idx=%d\n", tx_drate->idx, tx_drate[3].count);
 	for (nRCParams = 0; (nRCParams < SSV62XX_TX_MAX_RATES); nRCParams++) {
 		if ((rc_params == NULL) || (sc == NULL)) {
 			mcsidx = tx_drate->idx;
