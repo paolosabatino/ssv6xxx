@@ -1431,7 +1431,11 @@ static void ssv6xxx_rate_free_sta(void *priv, struct ieee80211_sta *sta,
 	rc_sta->rc_valid = false;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
 static void *ssv6xxx_rate_alloc(struct ieee80211_hw *hw)
+#else
+static void *ssv6xxx_rate_alloc(struct ieee80211_hw *hw, struct dentry *debugfsdir)
+#endif
 {
 	struct ssv_softc *sc = hw->priv;
 	struct ssv_rate_ctrl *ssv_rc;
@@ -1484,6 +1488,7 @@ void ssv6xxx_rc_mac8011_rate_idx(struct ssv_softc *sc,
 	struct ssv_rc_rate *rc_rate;
 	BUG_ON(hw_rate_idx >= RATE_TABLE_SIZE && hw_rate_idx < 0);
 	rc_rate = &ssv_rc->rc_table[hw_rate_idx];
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
 	if (rc_rate->rc_flags & RC_FLAG_HT) {
 		rxs->flag |= RC_FLAG_HT;
 		if (rc_rate->rc_flags & RC_FLAG_HT_SGI)
@@ -1492,6 +1497,16 @@ void ssv6xxx_rc_mac8011_rate_idx(struct ssv_softc *sc,
 		if (rc_rate->rc_flags & RC_FLAG_SHORT_PREAMBLE)
 			rxs->flag |= RX_ENC_FLAG_SHORTPRE;
 	}
+#else
+	if (rc_rate->rc_flags & RC_FLAG_HT) {
+		rxs->flag |= RC_FLAG_HT;
+		if (rc_rate->rc_flags & RC_FLAG_HT_SGI)
+			rxs->flag |= RX_FLAG_SHORT_GI;
+	} else {
+		if (rc_rate->rc_flags & RC_FLAG_SHORT_PREAMBLE)
+			rxs->flag |= RX_FLAG_SHORTPRE;
+	}
+#endif
 	rxs->rate_idx = rc_rate->dot11_rate_idx;
 }
 

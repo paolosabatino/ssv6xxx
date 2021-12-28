@@ -1136,6 +1136,7 @@ static int wl_cfgvendor_priv_string_handler(struct wiphy *wiphy,
 	return err;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)
 static const struct wiphy_vendor_command ssv_vendor_cmds[] = {
 	{
 	 {
@@ -1247,6 +1248,119 @@ static const struct wiphy_vendor_command ssv_vendor_cmds[] = {
 	 .doit = ssv_cfgvendor_get_feature_set_matrix,
 	 .policy = VENDOR_CMD_RAW_DATA}
 };
+#else
+static const struct wiphy_vendor_command ssv_vendor_cmds[] = {
+	{
+	 {
+	  .vendor_id = OUI_SSV,
+	  .subcmd = RTK_VENDOR_SCMD_PRIV_STR},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_priv_string_handler
+	},
+#if defined(GSCAN_SUPPORT) && 0
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = GSCAN_SUBCMD_GET_CAPABILITIES},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_gscan_get_capabilities
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = GSCAN_SUBCMD_SET_CONFIG},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_set_scan_cfg
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = GSCAN_SUBCMD_SET_SCAN_CONFIG},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_set_batch_scan_cfg
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = GSCAN_SUBCMD_ENABLE_GSCAN},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_initiate_gscan
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = GSCAN_SUBCMD_ENABLE_FULL_SCAN_RESULTS},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_enable_full_scan_result
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = GSCAN_SUBCMD_SET_HOTLIST},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_hotlist_cfg
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = GSCAN_SUBCMD_SET_SIGNIFICANT_CHANGE_CONFIG},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_significant_change_cfg
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = GSCAN_SUBCMD_GET_SCAN_RESULTS},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_gscan_get_batch_results
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = GSCAN_SUBCMD_GET_CHANNEL_LIST},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_gscan_get_channel_list
+	},
+#endif				/* GSCAN_SUPPORT */
+#if defined(RTT_SUPPORT) && 0
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = RTT_SUBCMD_SET_CONFIG},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_rtt_set_config
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = RTT_SUBCMD_CANCEL_CONFIG},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_rtt_cancel_config
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = RTT_SUBCMD_GETCAPABILITY},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = wl_cfgvendor_rtt_get_capability
+	},
+#endif				/* RTT_SUPPORT */
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = ANDR_WIFI_SUBCMD_GET_FEATURE_SET},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = ssv_cfgvendor_get_feature_set
+	},
+	{
+	 {
+	  .vendor_id = OUI_GOOGLE,
+	  .subcmd = ANDR_WIFI_SUBCMD_GET_FEATURE_SET_MATRIX},
+	 .flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+	 .doit = ssv_cfgvendor_get_feature_set_matrix
+	}
+};
+#endif
 
 static const struct nl80211_vendor_cmd_info ssv_vendor_events[] = {
 	{OUI_SSV, RTK_VENDOR_EVENT_UNSPEC},
