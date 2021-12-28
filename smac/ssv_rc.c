@@ -526,8 +526,7 @@ static void rate_control_pid_sample(struct ssv_rate_ctrl *ssv_rc,
 				tmp = (pf - spinfo->last_pf);
 				tmp =
 				    RC_PID_DO_ARITH_RIGHT_SHIFT(tmp,
-								rc_table->
-								arith_shift);
+								rc_table->arith_shift);
 				rinfo[j].diff = rinfo[i].diff + tmp;
 				pinfo->oldrate = spinfo->txrate_idx;
 			}
@@ -548,8 +547,8 @@ static void rate_control_pid_sample(struct ssv_rate_ctrl *ssv_rc,
 			     err_der * RC_PID_COEFF_D);
 			adj =
 			    RC_PID_DO_ARITH_RIGHT_SHIFT(adj,
-							rc_table->
-							arith_shift << 1);
+							rc_table->arith_shift <<
+							1);
 			if (adj) {
 #ifdef RATE_CONTROL_PARAMETER_DEBUG
 				if ((spinfo->txrate_idx != 11)
@@ -626,17 +625,19 @@ static void rate_control_pid_sample(struct ssv_rate_ctrl *ssv_rc,
 						rate->throughput =
 						    (ewma_thp + this_thp) >> 1;
 					if (rate->throughput >
-					    pinfo->rinfo[spinfo->txrate_idx].
-					    throughput) {
+					    pinfo->rinfo[spinfo->
+							 txrate_idx].throughput)
+					{
 #ifdef RATE_CONTROL_PARAMETER_DEBUG
 						printk
 						    ("[RC]UPDATE probe rate idx[%d] [%d][%d%%] Old idx[%d] [%d][%d%%] feedback[%d] \n",
 						     spinfo->tmp_rate_idx,
 						     rate->throughput, dlr,
 						     spinfo->txrate_idx,
-						     pinfo->rinfo[spinfo->
-								  txrate_idx].
-						     throughput, txrate_dlr,
+						     pinfo->
+						     rinfo
+						     [spinfo->txrate_idx].throughput,
+						     txrate_dlr,
 						     spinfo->feedback_probes);
 #endif
 						spinfo->txrate_idx =
@@ -648,9 +649,10 @@ static void rate_control_pid_sample(struct ssv_rate_ctrl *ssv_rc,
 						     spinfo->tmp_rate_idx,
 						     rate->throughput, dlr,
 						     spinfo->txrate_idx,
-						     pinfo->rinfo[spinfo->
-								  txrate_idx].
-						     throughput, txrate_dlr,
+						     pinfo->
+						     rinfo
+						     [spinfo->txrate_idx].throughput,
+						     txrate_dlr,
 						     spinfo->feedback_probes);
 #endif
 						;
@@ -760,13 +762,15 @@ void ssv6xxx_legacy_report_handler(struct ssv_softc *sc, struct sk_buff *skb,
 			report_data->rates[0].data_rate -= 3;
 		}
 	}
-	if (ssv_rc->rc_table[rc_sta->pinfo.rinfo[spinfo->txrate_idx].rc_index].
-	    hw_rate_idx == report_data->rates[0].data_rate) {
+	if (ssv_rc->
+	    rc_table[rc_sta->pinfo.rinfo[spinfo->txrate_idx].
+		     rc_index].hw_rate_idx == report_data->rates[0].data_rate) {
 		report_data_index =
 		    rc_sta->pinfo.rinfo[spinfo->txrate_idx].index;
-	} else if (ssv_rc->
-		   rc_table[rc_sta->pinfo.rinfo[spinfo->tmp_rate_idx].rc_index].
-		   hw_rate_idx == report_data->rates[0].data_rate) {
+	} else
+	    if (ssv_rc->rc_table
+		[rc_sta->pinfo.rinfo[spinfo->tmp_rate_idx].
+		 rc_index].hw_rate_idx == report_data->rates[0].data_rate) {
 		report_data_index =
 		    rc_sta->pinfo.rinfo[spinfo->tmp_rate_idx].index;
 	}
@@ -776,10 +780,12 @@ void ssv6xxx_legacy_report_handler(struct ssv_softc *sc, struct sk_buff *skb,
 		printk
 		    ("Rate control report mismatch report_rate_idx[%d] tmp_rate_idx[%d]rate[%d] txrate_idx[%d]rate[%d]!!\n",
 		     report_data->rates[0].data_rate, spinfo->tmp_rate_idx,
-		     ssv_rc->rc_table[rc_sta->pinfo.rinfo[spinfo->tmp_rate_idx].
-				      rc_index].hw_rate_idx, spinfo->txrate_idx,
-		     ssv_rc->rc_table[rc_sta->pinfo.rinfo[spinfo->txrate_idx].
-				      rc_index].hw_rate_idx);
+		     ssv_rc->rc_table[rc_sta->pinfo.
+				      rinfo[spinfo->tmp_rate_idx].rc_index].
+		     hw_rate_idx, spinfo->txrate_idx,
+		     ssv_rc->rc_table[rc_sta->pinfo.
+				      rinfo[spinfo->txrate_idx].rc_index].
+		     hw_rate_idx);
 #endif
 		return;
 	}
@@ -829,9 +835,9 @@ void ssv6xxx_legacy_report_handler(struct ssv_softc *sc, struct sk_buff *skb,
 #ifdef RATE_CONTROL_STUPID_DEBUG
 		if (spinfo->txrate_idx != spinfo->tmp_rate_idx) {
 			rate = &pidrate[spinfo->tmp_rate_idx];
-			if (spinfo->monitoring
-			    && ((rate->this_attempt == 0)
-				|| (rate->this_attempt != MAXPROBES))) {
+			if (spinfo->monitoring && ((rate->this_attempt == 0)
+						   || (rate->this_attempt !=
+						       MAXPROBES))) {
 				printk("Probe result a[%ld]s[%ld]f[%ld]",
 				       rate->this_attempt, rate->this_success,
 				       rate->this_fail);
@@ -1067,43 +1073,40 @@ static void ssv6xxx_get_rate(void *priv, struct ieee80211_sta *sta,
 	struct ssv_rc_rate *rc_rate = NULL;
 	struct ssv_sta_priv_data *ssv_sta_priv;
 	int rateidx = 99;
-	/*
-	   if (rate_control_send_low(sta, priv_sta, txrc))
-	   {
-	   int i = 0;
-	   int total_rates = (sizeof(ssv_11bgn_rate_table) / sizeof(ssv_11bgn_rate_table[0]));
-	   #if 1
-	   if ((txrc->rate_idx_mask & (1 << rates[0].idx)) == 0)
-	   {
-	   u32 rate_idx = rates[0].idx + 1;
-	   u32 rate_idx_mask = txrc->rate_idx_mask >> rate_idx;
-	   while (rate_idx_mask && (rate_idx_mask & 1) == 0)
-	   {
-	   rate_idx_mask >>= 1;
-	   rate_idx++;
-	   }
-	   if (rate_idx_mask)
-	   rates[0].idx = rate_idx;
-	   else
-	   {
-	   WARN_ON(rate_idx_mask == 0);
-	   }
-	   }
-	   #endif
-	   for (i = 0; i < total_rates; i++)
-	   {
-	   if (rates[0].idx == ssv_11bgn_rate_table[i].dot11_rate_idx)
-	   {
-	   break;
-	   }
-	   }
-	   if (i < total_rates)
-	   rc_rate = &ssv_rc->rc_table[i];
-	   else
-	   {
-	   WARN_ON("Failed to find matching low rate.");
-	   }
-	   } */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,2,0)
+	if (rate_control_send_low(sta, priv_sta, txrc)) {
+		int i = 0;
+		int total_rates =
+		    (sizeof(ssv_11bgn_rate_table) /
+		     sizeof(ssv_11bgn_rate_table[0]));
+#if 1
+		if ((txrc->rate_idx_mask & (1 << rates[0].idx)) == 0) {
+			u32 rate_idx = rates[0].idx + 1;
+			u32 rate_idx_mask = txrc->rate_idx_mask >> rate_idx;
+			while (rate_idx_mask && (rate_idx_mask & 1) == 0) {
+				rate_idx_mask >>= 1;
+				rate_idx++;
+			}
+			if (rate_idx_mask)
+				rates[0].idx = rate_idx;
+			else {
+				WARN_ON(rate_idx_mask == 0);
+			}
+		}
+#endif
+		for (i = 0; i < total_rates; i++) {
+			if (rates[0].idx ==
+			    ssv_11bgn_rate_table[i].dot11_rate_idx) {
+				break;
+			}
+		}
+		if (i < total_rates)
+			rc_rate = &ssv_rc->rc_table[i];
+		else {
+			WARN_ON("Failed to find matching low rate.");
+		}
+	}
+#endif
 	if (rc_rate == NULL) {
 		if (conf_is_ht(&sc->hw->conf) &&
 		    (sta->ht_cap.cap & IEEE80211_HT_CAP_LDPC_CODING))
@@ -1121,58 +1124,53 @@ static void ssv6xxx_get_rate(void *priv, struct ieee80211_sta *sta,
 				     SSV_RC_MAX_HARDWARE_SUPPORT)
 				    || (rc_sta->rc_wsid < 0)) {
 					ssv_sta_priv =
-					    (struct ssv_sta_priv_data *)sta->
-					    drv_priv;
+					    (struct ssv_sta_priv_data *)
+					    sta->drv_priv;
 					{
 						if ((rc_sta->ht_rc_type >=
 						     RC_TYPE_HT_SGI_20)
-						    && (ssv_sta_priv->
-							rx_data_rate <
-							SSV62XX_RATE_MCS_INDEX))
-						{
+						    &&
+						    (ssv_sta_priv->rx_data_rate
+						     <
+						     SSV62XX_RATE_MCS_INDEX)) {
 							rateidx =
-							    rc_sta->pinfo.
-							    rinfo[spinfo->
-								  txrate_idx].
-							    rc_index;
+							    rc_sta->
+							    pinfo.rinfo
+							    [spinfo->txrate_idx].rc_index;
 						} else {
 							rateidx =
-							    ssv_sta_priv->
-							    rx_data_rate;
+							    ssv_sta_priv->rx_data_rate;
 						}
 					}
 				} else {
 					if (rc_sta->is_ht) {
 #ifdef DISABLE_RATE_CONTROL_SAMPLE
 						rateidx =
-						    rc_sta->ht.groups.
-						    rates[MCS_GROUP_RATES -
-							  1].rc_index;
+						    rc_sta->ht.
+						    groups.rates[MCS_GROUP_RATES
+								 - 1].rc_index;
 #else
 						rateidx =
-						    rc_sta->pinfo.rinfo[spinfo->
-									txrate_idx].
-						    rc_index;
+						    rc_sta->pinfo.
+						    rinfo
+						    [spinfo->txrate_idx].rc_index;
 #endif
 					} else {
 						{
-							BUG_ON(spinfo->
-							       txrate_idx >=
-							       rc_sta->
-							       rc_num_rate);
+							BUG_ON
+							    (spinfo->txrate_idx
+							     >=
+							     rc_sta->rc_num_rate);
 							rateidx =
-							    rc_sta->pinfo.
-							    rinfo[spinfo->
-								  txrate_idx].
-							    rc_index;
+							    rc_sta->
+							    pinfo.rinfo
+							    [spinfo->txrate_idx].rc_index;
 						}
 						if (rateidx < 4) {
 							if (rateidx) {
-								if ((sc->
-								     sc_flags &
-								     SC_OP_SHORT_PREAMBLE)
-								    || (txrc->
-									short_preamble))
+								if ((sc->sc_flags & SC_OP_SHORT_PREAMBLE)
+								    ||
+								    (txrc->short_preamble))
 								{
 									rateidx
 									    +=
@@ -1246,19 +1244,18 @@ static void ssv62xx_rc_caps(struct ssv_sta_rc_info *rc_sta)
 		rinfo[i].perfect_tx_time =
 		    TDIFS + (TSLOT * 15 >> 1) + pide_frame_duration(1530,
 								    ssv_11bgn_rate_table
-								    [rinfo[i].
-								     rc_index].
-								    rate_kbps /
-								    100, 1,
+								    [rinfo
+								     [i].rc_index].rate_kbps
+								    / 100, 1,
 								    ssv_11bgn_rate_table
-								    [rinfo[i].
-								     rc_index].
-								    phy_type) +
-		    pide_frame_duration(10,
-					ssv_11bgn_rate_table[rinfo[i].rc_index].
-					rate_kbps / 100, 1,
-					ssv_11bgn_rate_table[rinfo[i].rc_index].
-					phy_type);
+								    [rinfo
+								     [i].rc_index].phy_type)
+		    + pide_frame_duration(10,
+					  ssv_11bgn_rate_table[rinfo[i].
+							       rc_index].rate_kbps
+					  / 100, 1,
+					  ssv_11bgn_rate_table[rinfo[i].
+							       rc_index].phy_type);
 		printk("[RC]Init perfect_tx_time[%d][%d]\n", i,
 		       rinfo[i].perfect_tx_time);
 		rinfo[i].throughput = 0;
@@ -1312,10 +1309,10 @@ static void ssv6xxx_rate_update_rc_type(void *priv,
 	if (sta->ht_cap.ht_supported == true) {
 		printk("[RC init ]HT support wsid\n");
 		for (i = 0; i < SSV_HT_RATE_MAX; i++) {
-			if (sta->ht_cap.mcs.
-			    rx_mask[i /
-				    MCS_GROUP_RATES] & (1 << (i %
-							      MCS_GROUP_RATES)))
+			if (sta->ht_cap.mcs.rx_mask[i /
+						    MCS_GROUP_RATES] & (1 << (i
+									      %
+									      MCS_GROUP_RATES)))
 				ht_supp_rates |= BIT(i);
 		}
 		rc_sta->ht_supp_rates = ht_supp_rates;
@@ -1434,7 +1431,8 @@ static void ssv6xxx_rate_free_sta(void *priv, struct ieee80211_sta *sta,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
 static void *ssv6xxx_rate_alloc(struct ieee80211_hw *hw)
 #else
-static void *ssv6xxx_rate_alloc(struct ieee80211_hw *hw, struct dentry *debugfsdir)
+static void *ssv6xxx_rate_alloc(struct ieee80211_hw *hw,
+				struct dentry *debugfsdir)
 #endif
 {
 	struct ssv_softc *sc = hw->priv;
@@ -1521,16 +1519,18 @@ void ssv6xxx_rc_hw_rate_idx(struct ssv_softc *sc,
 	    (ssv_rc->rc_table[tx_rate[SSV_DRATE_IDX].count].phy_type ==
 	     WLAN_RC_PHY_OFDM) ? IEEE80211_RATE_ERP_G : 0;
 	sr->d_flags |=
-	    (ssv_rc->rc_table[tx_rate[SSV_DRATE_IDX].count].
-	     rc_flags & RC_FLAG_SHORT_PREAMBLE) ? IEEE80211_RATE_SHORT_PREAMBLE
-	    : 0;
+	    (ssv_rc->
+	     rc_table[tx_rate[SSV_DRATE_IDX].
+		      count].rc_flags & RC_FLAG_SHORT_PREAMBLE) ?
+	    IEEE80211_RATE_SHORT_PREAMBLE : 0;
 	sr->c_flags =
 	    (ssv_rc->rc_table[tx_rate[SSV_CRATE_IDX].count].phy_type ==
 	     WLAN_RC_PHY_OFDM) ? IEEE80211_RATE_ERP_G : 0;
 	sr->c_flags |=
-	    (ssv_rc->rc_table[tx_rate[SSV_CRATE_IDX].count].
-	     rc_flags & RC_FLAG_SHORT_PREAMBLE) ? IEEE80211_RATE_SHORT_PREAMBLE
-	    : 0;
+	    (ssv_rc->
+	     rc_table[tx_rate[SSV_CRATE_IDX].
+		      count].rc_flags & RC_FLAG_SHORT_PREAMBLE) ?
+	    IEEE80211_RATE_SHORT_PREAMBLE : 0;
 	sr->drate_kbps =
 	    ssv_rc->rc_table[tx_rate[SSV_DRATE_IDX].count].rate_kbps;
 	sr->drate_hw_idx = tx_rate[SSV_DRATE_IDX].count;
@@ -1595,8 +1595,8 @@ u8 ssv6xxx_rc_hw_rate_update_check(struct sk_buff *skb, struct ssv_softc *sc,
 			} else if (spinfo->probe_cnt > 0
 				   && spinfo->probe_report_flag) {
 				rateidx =
-				    rc_sta->pinfo.rinfo[spinfo->tmp_rate_idx].
-				    rc_index;
+				    rc_sta->pinfo.rinfo[spinfo->
+							tmp_rate_idx].rc_index;
 				spinfo->probe_cnt--;
 				if (spinfo->probe_cnt == 0) {
 					ret |= RC_FIRMWARE_REPORT_FLAG;

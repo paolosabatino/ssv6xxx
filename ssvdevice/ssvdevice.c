@@ -93,7 +93,7 @@ static ssize_t ssv6xxx_dbg_write(struct file *filp, const char __user * buffer,
 	return count;
 }
 
-size_t read_line(struct file *fp, char *buf, size_t size)
+size_t read_line(struct file * fp, char *buf, size_t size)
 {
 	size_t num_read = 0;
 	size_t total_read = 0;
@@ -109,7 +109,11 @@ size_t read_line(struct file *fp, char *buf, size_t size)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
 		num_read = kernel_read(fp, &ch, 1, &fp->f_pos);
 #else
+		mm_segment_t fs;
+		fs = get_fs();
+		set_fs(KERNEL_DS);
 		num_read = vfs_read(fp, &ch, 1, &fp->f_pos);
+		set_fs(fs);
 #endif
 		if (num_read < 0) {
 			if (num_read == EINTR)
