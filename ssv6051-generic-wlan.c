@@ -41,8 +41,6 @@ static __init int ssv_init_module(void)
 	int ret = 0;
 	int time = 5;
 
-    pr_info("ssv_init_module");
-
 	msleep(120);
 
 	g_wifidev_registered = 1;
@@ -60,8 +58,6 @@ static __init int ssv_init_module(void)
 }
 static __exit void ssv_exit_module(void)
 {
-
-    pr_info("ssv_exit_module");
 
 	if (g_wifidev_registered)
     {

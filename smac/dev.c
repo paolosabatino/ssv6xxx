@@ -1025,7 +1025,7 @@ int _set_key_wep(struct ssv_softc *sc, struct ssv_vif_priv_data *vif_priv,
 		       key->keylen);
 	}
 	if (sc->sh->cfg.use_wpa2_only) {
-		dev_info(sc->dev, "Use WPA2 HW security mode only.\n");
+		dev_warn(sc->dev, "WEP: use WPA2 HW security mode only.\n");
 	}
 	if ((sc->sh->cfg.use_wpa2_only == 0)
 	    && vif_priv->vif_idx == 0) {
@@ -1074,7 +1074,7 @@ static int _set_pairwise_key_tkip_ccmp(struct ssv_softc *sc,
 		return -EOPNOTSUPP;
 	}
 	if (sc->sh->cfg.use_wpa2_only) {
-		dev_warn(sc->dev, "Use WPA2 HW security mode only.\n");
+		dev_warn(sc->dev, "Pairwise TKIP/CCMP: use WPA2 HW security mode only.\n");
 	}
 	if (vif_info->if_type == NL80211_IFTYPE_STATION) {
 		struct ssv_sta_priv_data *first_sta_priv =
@@ -1179,7 +1179,7 @@ static int _set_group_key_tkip_ccmp(struct ssv_softc *sc,
 	bool tkip_use_sw_cipher = false;
 	vif_priv->group_cipher = cipher;
 	if (sc->sh->cfg.use_wpa2_only) {
-		dev_warn(sc->dev, "Use WPA2 HW security mode only.\n");
+		dev_warn(sc->dev, "Group TKIP/CCMP: use WPA2 HW security mode only.\n");
 	}
 	if ((cipher == SSV_CIPHER_TKIP) && (sc->sh->cfg.use_wpa2_only == 1)) {
 		tkip_use_sw_cipher = true;
@@ -1515,7 +1515,7 @@ static int ssv6200_set_key(struct ieee80211_hw *hw,
 	}
 	mutex_unlock(&sc->mutex);
 	if (sta_priv != NULL) {
-		dev_info(sc->dev, "station mode, hardware encrypt:%d/decrypt:%d, software encrypt:%d/decrypt:%d\n",
+		dev_info(sc->dev, "station mode: hardware encrypt:%d/decrypt:%d, software encrypt:%d/decrypt:%d\n",
 		       (sta_priv->has_hw_encrypt == true),
 		       (sta_priv->has_hw_decrypt == true),
 		       (sta_priv->need_sw_encrypt == true),

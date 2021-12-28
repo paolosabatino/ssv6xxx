@@ -127,9 +127,10 @@ static int ssv6xxx_hci_send_cmd(struct sk_buff *skb)
 {
 	int ret;
 	ret = IF_SEND(ctrl_hci, (void *)skb->data, skb->len, 0);
-	if (ret < 0) {
-		printk("ssv6xxx_hci_send_cmd fail......\n");
-	}
+
+	if (ret < 0)
+		pr_warn("ssv6xxx_hci_send_cmd failed, ret=%d\n", ret);
+
 	return ret;
 }
 
@@ -268,12 +269,12 @@ static int ssv6xxx_hci_xmit(struct ssv_hw_txq *hw_txq, int max_count,
 	skb_queue_head_init(&tx_cb_list);
 	for (tx_count = 0; tx_count < max_count; tx_count++) {
 		if (ctrl_hci->hci_start == false) {
-			printk("ssv6xxx_hci_xmit - hci_start = false\n");
+			pr_debug("ssv6xxx_hci_xmit - hci_start = false\n");
 			goto xmit_out;
 		}
 		skb = skb_dequeue(&hw_txq->qhead);
 		if (!skb) {
-			printk("ssv6xxx_hci_xmit - queue empty\n");
+			pr_debug("ssv6xxx_hci_xmit - queue empty\n");
 			goto xmit_out;
 		}
 		page_count = (skb->len + SSV6200_ALLOC_RSVD);
@@ -282,8 +283,7 @@ static int ssv6xxx_hci_xmit(struct ssv_hw_txq *hw_txq, int max_count,
 		else
 			page_count = page_count >> HW_MMU_PAGE_SHIFT;
 		if (page_count > (SSV6200_PAGE_TX_THRESHOLD / 2))
-			printk(KERN_ERR
-			       "Asking page %d(%d) exceeds resource limit %d.\n",
+			pr_err("Asking page %d(%d) exceeds resource limit %d.\n",
 			       page_count, skb->len,
 			       (SSV6200_PAGE_TX_THRESHOLD / 2));
 		if ((phw_resource->free_tx_page < page_count)
@@ -308,7 +308,7 @@ static int ssv6xxx_hci_xmit(struct ssv_hw_txq *hw_txq, int max_count,
 		    IF_SEND(ctrl_hci, (void *)skb->data, skb->len,
 			    hw_txq->txq_no);
 		if (ret < 0) {
-			printk(KERN_ALERT "ssv6xxx_hci_xmit fail......\n");
+			pr_err("ssv6xxx_hci_xmit failure\n");
 			skb_queue_head(&hw_txq->qhead, skb);
 			break;
 		}
@@ -442,7 +442,7 @@ static int _do_rx(struct ssv6xxx_hci_ctrl *hctl, u32 isr_status)
 			getnstimeofday(&rx_io_end_time);
 #endif
 		if (ret < 0 || dlen <= 0) {
-			printk("%s(): IF_RECV() retruns %d (dlen=%d)\n",
+			pr_warn("%s(): IF_RECV() retruns %d (dlen=%d)\n",
 			       __FUNCTION__, ret, (int)dlen);
 			if (ret != -84 || dlen > MAX_FRAME_SIZE)
 				break;
@@ -450,7 +450,7 @@ static int _do_rx(struct ssv6xxx_hci_ctrl *hctl, u32 isr_status)
 		rx_mpdu = hctl->rx_buf;
 		hctl->rx_buf = ssv_skb_alloc(MAX_FRAME_SIZE);
 		if (hctl->rx_buf == NULL) {
-			printk(KERN_ERR "RX buffer allocation failure!\n");
+			pr_err("RX buffer allocation failure!\n");
 			hctl->rx_buf = rx_mpdu;
 			break;
 		}
@@ -528,7 +528,7 @@ static void ssv6xxx_hci_rx_work(struct work_struct *work)
 			getnstimeofday(&rx_io_end_time);
 #endif
 		if (ret < 0 || dlen <= 0) {
-			printk("%s(): IF_RECV() retruns %d (dlen=%d)\n",
+			pr_warn("%s(): IF_RECV() retruns %d (dlen=%d)\n",
 			       __FUNCTION__, ret, (int)dlen);
 			if (ret != -84 || dlen > MAX_FRAME_SIZE)
 				break;
@@ -536,7 +536,7 @@ static void ssv6xxx_hci_rx_work(struct work_struct *work)
 		rx_mpdu = ctrl_hci->rx_buf;
 		ctrl_hci->rx_buf = ssv_skb_alloc(MAX_FRAME_SIZE);
 		if (ctrl_hci->rx_buf == NULL) {
-			printk(KERN_ERR "RX buffer allocation failure!\n");
+			pr_err("RX buffer allocation failure!\n");
 			ctrl_hci->rx_buf = rx_mpdu;
 			break;
 		}
@@ -876,7 +876,7 @@ static struct ssv6xxx_hci_ops hci_ops = {
 int ssv6xxx_hci_deregister(void)
 {
 	u32 regval;
-	printk("%s(): \n", __FUNCTION__);
+	pr_debug("%s(): \n", __FUNCTION__);
 	if (ctrl_hci->shi == NULL)
 		return -1;
 	regval = 1;

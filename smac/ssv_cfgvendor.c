@@ -39,9 +39,6 @@
 #include <net/rtnetlink.h>
 #include "ssv_cfgvendor.h"
 
-#define DBG_SSV_LEVEL(lev, x, ...) do {printk(x,##__VA_ARGS__);} while(0)
-#define DBG_SSV(x, ...) do {printk(x,##__VA_ARGS__);} while(0)
-
 #define wiphy_to_softc(x) (*((struct ssv_softc**)wiphy_priv(x)))
 #define FUNC_NDEV_FMT "%s"
 #define FUNC_NDEV_ARG(ndev) __func__
@@ -97,8 +94,7 @@ int ssv_cfgvendor_send_async_event(struct wiphy *wiphy,
 	/* Alloc the SKB for vendor_event */
 	skb = ssv_cfg80211_vendor_event_alloc(wiphy, len, event_id, kflags);
 	if (!skb) {
-		DBG_SSV_LEVEL(_drv_err_, FUNC_NDEV_FMT " skb alloc failed",
-			      FUNC_NDEV_ARG(dev));
+		dev_err(&wiphy->dev, "skb alloc failed\n");
 		return -ENOMEM;
 	}
 
@@ -119,8 +115,7 @@ static int ssv_cfgvendor_send_cmd_reply(struct wiphy *wiphy,
 	/* Alloc the SKB for vendor_event */
 	skb = ssv_cfg80211_vendor_cmd_alloc_reply_skb(wiphy, len);
 	if (unlikely(!skb)) {
-		DBG_SSV_LEVEL(_drv_err_, FUNC_NDEV_FMT " skb alloc failed",
-			      FUNC_NDEV_ARG(dev));
+		dev_err(&wiphy->dev, "skb alloc failed");
 		return -ENOMEM;
 	}
 
@@ -182,9 +177,7 @@ int *ssv_dev_get_feature_set_matrix(struct net_device *dev, int *num)
 	    (int *)kmalloc(mem_needed, in_interrupt()? GFP_ATOMIC : GFP_KERNEL);
 
 	if (!ret) {
-		DBG_SSV_LEVEL(_drv_err_,
-			      FUNC_NDEV_FMT " failed to allocate %d bytes\n",
-			      FUNC_NDEV_ARG(dev), mem_needed);
+		dev_err(&dev->dev, "failed to allocate %d bytes\n", mem_needed);
 		return ret;
 	}
 
@@ -233,8 +226,6 @@ static int ssv_cfgvendor_get_feature_set(struct wiphy *wiphy,
 	int err = 0;
 	int reply;
 
-	DBG_SSV("++++++++++++++++in ssv_cfgvendor_get_feature_set\n");
-
 	reply = ssv_dev_get_feature_set(wdev_to_ndev(wdev));
 
 	err =
@@ -242,10 +233,7 @@ static int ssv_cfgvendor_get_feature_set(struct wiphy *wiphy,
 					 sizeof(int));
 
 	if (unlikely(err))
-		DBG_SSV_LEVEL(_drv_err_,
-			      FUNC_NDEV_FMT
-			      " Vendor Command reply failed ret:%d \n",
-			      FUNC_NDEV_ARG(wdev_to_ndev(wdev)), err);
+		dev_err(&wiphy->dev, "vendor Command reply failed, ret:%d\n", err);
 
 	return err;
 }
@@ -258,15 +246,11 @@ static int ssv_cfgvendor_get_feature_set_matrix(struct wiphy *wiphy,
 	struct sk_buff *skb;
 	int *reply;
 	int num, mem_needed, i;
-	DBG_SSV("++++++++++++++++in ssv_cfgvendor_get_feature_set_matrix\n");
 
 	reply = ssv_dev_get_feature_set_matrix(wdev_to_ndev(wdev), &num);
 
 	if (!reply) {
-		DBG_SSV_LEVEL(_drv_err_,
-			      FUNC_NDEV_FMT
-			      " Could not get feature list matrix\n",
-			      FUNC_NDEV_ARG(wdev_to_ndev(wdev)));
+		dev_err(&wiphy->dev, "could not get feature list matrix\n");
 		err = -EINVAL;
 		return err;
 	}
@@ -277,8 +261,7 @@ static int ssv_cfgvendor_get_feature_set_matrix(struct wiphy *wiphy,
 	/* Alloc the SKB for vendor_event */
 	skb = ssv_cfg80211_vendor_cmd_alloc_reply_skb(wiphy, mem_needed);
 	if (unlikely(!skb)) {
-		DBG_SSV_LEVEL(_drv_err_, FUNC_NDEV_FMT " skb alloc failed",
-			      FUNC_NDEV_ARG(wdev_to_ndev(wdev)));
+		dev_err(&wiphy->dev, "skb alloc failed\n");
 		err = -ENOMEM;
 		goto exit;
 	}
@@ -291,10 +274,7 @@ static int ssv_cfgvendor_get_feature_set_matrix(struct wiphy *wiphy,
 	err = ssv_cfg80211_vendor_cmd_reply(skb);
 
 	if (unlikely(err))
-		DBG_SSV_LEVEL(_drv_err_,
-			      FUNC_NDEV_FMT
-			      " Vendor Command reply failed ret:%d \n",
-			      FUNC_NDEV_ARG(wdev_to_ndev(wdev)), err);
+		dev_err(&wiphy->dev, "vendor Command reply failed, ret=%d\n", err);
  exit:
 	kfree((void *)reply);
 	return err;
@@ -1124,14 +1104,10 @@ static int wl_cfgvendor_priv_string_handler(struct wiphy *wiphy,
 	int err = 0;
 	u8 resp[1] = { '\0' };
 
-	DBG_SSV_LEVEL(_drv_always_, FUNC_NDEV_FMT " %s\n",
-		      FUNC_NDEV_ARG(wdev_to_ndev(wdev)), (char *)data);
+	dev_dbg(&wiphy->dev, "%s\n", (char *)data);
 	err = ssv_cfgvendor_send_cmd_reply(wiphy, wdev_to_ndev(wdev), resp, 1);
 	if (unlikely(err))
-		DBG_SSV_LEVEL(_drv_err_,
-			      FUNC_NDEV_FMT
-			      "Vendor Command reply failed ret:%d \n",
-			      FUNC_NDEV_ARG(wdev_to_ndev(wdev)), err);
+		dev_err(&wiphy->dev, "vendor Command reply failed, ret=:%d\n", err);
 
 	return err;
 }
@@ -1383,7 +1359,7 @@ static const struct nl80211_vendor_cmd_info ssv_vendor_events[] = {
 int ssv_cfgvendor_attach(struct wiphy *wiphy)
 {
 
-	DBG_SSV("Register SSV cfg80211 vendor cmd(0x%x) interface \n",
+	dev_info(&wiphy->dev, "register SSV cfg80211 vendor cmd(0x%x) interface\n",
 		NL80211_CMD_VENDOR);
 
 	wiphy->vendor_commands = ssv_vendor_cmds;
@@ -1396,7 +1372,7 @@ int ssv_cfgvendor_attach(struct wiphy *wiphy)
 
 int ssv_cfgvendor_detach(struct wiphy *wiphy)
 {
-	DBG_SSV("Vendor: Unregister SSV cfg80211 vendor interface \n");
+	dev_info(&wiphy->dev, "unregister SSV cfg80211 vendor interface\n");
 
 	wiphy->vendor_commands = NULL;
 	wiphy->vendor_events = NULL;

@@ -368,7 +368,7 @@ static int ssv_cmd_dump(int argc, char *argv[])
 	char tmpbf[64];
 	int s;
 	if (!ssv6xxx_result_buf) {
-		printk("ssv6xxx_result_buf = NULL!!\n");
+		pr_warn("ssv6xxx_result_buf = NULL!!\n");
 		return -1;
 	}
 	if (argc != 2) {
@@ -944,7 +944,7 @@ void ssv6xxx_send_noa_cmd(struct ssv_softc *sc,
 	memcpy(host_cmd->dat32, p2p_noa_param,
 	       sizeof(struct ssv6xxx_p2p_noa_param));
 	while ((HCI_SEND_CMD(sc->sh, skb) != 0) && (retry_cnt)) {
-		printk(KERN_INFO "NOA cmd retry=%d!!\n", retry_cnt);
+		pr_debug("NOA cmd retry=%d\n", retry_cnt);
 		retry_cnt--;
 	}
 	ssvdevice_skb_free(skb);
@@ -1294,12 +1294,12 @@ static int ssv_cmd_iqk(int argc, char *argv[])
 	    ssvdevice_skb_alloc(HOST_CMD_HDR_LEN + IQK_CFG_LEN +
 				PHY_SETTING_SIZE + RF_SETTING_SIZE);
 	if (skb == NULL) {
-		printk("ssv command ssvdevice_skb_alloc fail!!!\n");
+		pr_err("ssv command ssvdevice_skb_alloc failure\n");
 		return 0;
 	}
 	if ((PHY_SETTING_SIZE > MAX_PHY_SETTING_TABLE_SIZE) ||
 	    (RF_SETTING_SIZE > MAX_RF_SETTING_TABLE_SIZE)) {
-		printk("Please check RF or PHY table size!!!\n");
+		pr_err("Please check RF or PHY table size\n");
 		BUG_ON(1);
 		return 0;
 	}
@@ -1418,12 +1418,12 @@ static int txtput_thread_m2(void *data)
 	    (200 * 1000 / 8 * Q_DELAY_MS) / ssv6xxx_txtput->size_per_frame;
 	q_delay_urange[0] = Q_DELAY_MS * 1000;
 	q_delay_urange[1] = q_delay_urange[0] + 1000;
-	printk("max_qlen: %d\n", max_qlen);
+	pr_debug("max_qlen: %d\n", max_qlen);
 	while (!kthread_should_stop() && ssv6xxx_txtput->loop_times > 0) {
 		ssv6xxx_txtput->loop_times--;
 		skb = ssvdevice_skb_alloc(ssv6xxx_txtput->size_per_frame);
 		if (skb == NULL) {
-			printk("ssv command txtput_generate_m2 "
+			pr_debug("ssv command txtput_generate_m2 "
 			       "ssvdevice_skb_alloc fail!!!\n");
 			goto end;
 		}
@@ -1460,7 +1460,7 @@ static int txtput_thread(void *data)
 		    SSV_REG_READ1(ssv6xxx_debug_ifops, ADR_TX_ID_ALL_INFO2,
 				  (u32 *) & txq_info2);
 		if (ret < 0) {
-			printk("%s, read ADR_TX_ID_ALL_INFO2 failed\n",
+			pr_debug("%s, read ADR_TX_ID_ALL_INFO2 failed\n",
 			       __func__);
 			goto end;
 		}
@@ -1478,7 +1478,7 @@ static int txtput_thread(void *data)
 	time_elapse = ((end_time - start_time) * 1000) / HZ;
 	if (time_elapse > 0) {
 		throughput = throughput / time_elapse;
-		printk("duration %ldms, avg. throughput %d Kbps\n", time_elapse,
+		pr_debug("duration %ldms, avg. throughput %d Kbps\n", time_elapse,
 		       (int)throughput);
 	}
  end:
@@ -1502,7 +1502,7 @@ int txtput_generate_host_cmd(u32 size_per_frame, u32 loop_times)
 	struct sk_buff *skb;
 	skb = ssvdevice_skb_alloc(size_per_frame);
 	if (skb == NULL) {
-		printk
+		pr_debug
 		    ("ssv command txtput_generate_host_cmd ssvdevice_skb_alloc fail!!!\n");
 		return 0;
 	}
@@ -1538,10 +1538,10 @@ int watchdog_controller(struct ssv_hw *sh, u8 flag)
 	struct sk_buff *skb;
 	struct cfg_host_cmd *host_cmd;
 	int ret = 0;
-	printk("watchdog_controller %d\n", flag);
+	pr_debug("watchdog_controller %d\n", flag);
 	skb = ssvdevice_skb_alloc(HOST_CMD_HDR_LEN);
 	if (skb == NULL) {
-		printk("init watchdog_controller fail!!!\n");
+		pr_err("init watchdog_controller failure\n");
 		return (-1);
 	}
 	skb->data_len = HOST_CMD_HDR_LEN;
@@ -1616,7 +1616,7 @@ static int ssv_cmd_rxtput(int argc, char *argv[])
 	    ssvdevice_skb_alloc(HOST_CMD_HDR_LEN +
 				sizeof(struct sdio_rxtput_cfg));
 	if (skb == NULL) {
-		printk("ssv command ssvdevice_skb_alloc fail!!!\n");
+		pr_err("ssv command ssvdevice_skb_alloc fail\n");
 		return 0;
 	}
 	watchdog_controller(((struct ssv_softc *)ssv_dbg_sc)->sh,
@@ -1668,23 +1668,18 @@ static int ssv_cmd_check(int argc, char *argv[])
 				id = 32 * x + y;
 				address = 0x80000000 + (id << 16);
 				{
-					printk("        ");
 					for (i = 0; i < size; i += 8) {
 						if (SSV_REG_READ1
 						    (ssv6xxx_debug_ifops,
 						     address, &value)) ;
-						printk("\n%08X:%08X", address,
-						       value);
 						address += 4;
 						for (j = 1; j < 8; j++) {
 							if (SSV_REG_READ1
 							    (ssv6xxx_debug_ifops,
 							     address, &value)) ;
-							printk(" %08X", value);
 							address += 4;
 						}
 					}
-					printk("\n");
 				}
 			}
 		}

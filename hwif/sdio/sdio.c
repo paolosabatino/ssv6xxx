@@ -1446,7 +1446,6 @@ EXPORT_SYMBOL(ssv6xxx_sdio_driver);
 
 int ssv6xxx_sdio_init(void)
 {
-	pr_info("ssv6xxx_sdio_init\n");
 	return sdio_register_driver(&ssv6xxx_sdio_driver);
 }
 

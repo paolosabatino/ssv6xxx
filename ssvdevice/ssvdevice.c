@@ -163,21 +163,18 @@ void sta_cfg_set(char *stacfgpath)
 	struct file *fp = (struct file *)NULL;
 	char buf[MAX_CHARS_PER_LINE], cfg_cmd[32], cfg_value[32];
 	size_t s, read_len = 0, is_cmd_support = 0;
-	printk("\n*** %s, %s ***\n\n", __func__, stacfgpath);
-	if (stacfgpath == NULL) {
-		stacfgpath = DEFAULT_CFG_PATH;
-		printk("redirect to %s\n", stacfgpath);
-	}
+
+	if (stacfgpath == NULL)
+        stacfgpath = DEFAULT_CFG_PATH;
+
 	memset(&ssv_cfg, 0, sizeof(ssv_cfg));
 	memset(buf, 0, sizeof(buf));
 	fp = filp_open(stacfgpath, O_RDONLY, 0);
 	if (IS_ERR(fp) || fp == NULL) {
-		printk("ERROR: filp_open\n");
 		WARN_ON(1);
 		return;
 	}
 	if (fp->f_path.dentry == NULL) {
-		printk("ERROR: dentry NULL\n");
 		WARN_ON(1);
 		return;
 	}
@@ -187,8 +184,7 @@ void sta_cfg_set(char *stacfgpath)
 		read_len = read_line(fp, buf, MAX_CHARS_PER_LINE);
 		sscanf(buf, "%s = %s", cfg_cmd, cfg_value);
 		if (!ischar(cfg_cmd) || !ischar(cfg_value)) {
-			printk("ERORR invalid parameter: %s\n", buf);
-			WARN_ON(1);
+			pr_warn("Invalid configuration parameter: %s\n", buf);
 			continue;
 		}
 		is_cmd_support = 0;
@@ -202,8 +198,7 @@ void sta_cfg_set(char *stacfgpath)
 			}
 		}
 		if (!is_cmd_support && strlen(cfg_cmd) > 0) {
-			printk("ERROR Unsupported command: %s", cfg_cmd);
-			WARN_ON(1);
+			pr_warn("Unsupported configuration command: %s", cfg_cmd);
 		}
 	} while (read_len > 0);
 	filp_close(fp, NULL);

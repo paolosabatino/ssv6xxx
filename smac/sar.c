@@ -39,28 +39,6 @@ struct t_sar_info sar_info[] = {
 
 int sar_info_size = sizeof(sar_info) / sizeof(sar_info[0]);
 
-void flash_hexdump(void)
-{
-	unsigned i;
-	const u8 *buf = (const char *)pflash_cfg;
-	size_t len = sizeof(flash_cfg);
-	printk("-----------------------------\n");
-	printk("0x00h:");
-	if (buf == NULL) {
-		printk(" [NULL]");
-	} else {
-		for (i = 0; i < len; i++) {
-			printk(" %02x", buf[i]);
-			if ((i + 1) % 16 == 0) {
-				printk("\n");
-				if (i + 1 < len)
-					printk("0x%02xh:", i + 1);
-			}
-		}
-	}
-	printk("-----------------------------\n");
-}
-
 static u8 get_sar_lvl(u32 sar)
 {
 	static u32 prev_sar = 0;
@@ -70,7 +48,7 @@ static u8 get_sar_lvl(u32 sar)
 	if (sar == prev_sar)
 		return changed;
 
-	printk("[thermal_sar] %d\n", (int)sar);
+	pr_debug("[thermal_sar] %d\n", (int)sar);
 
 	for (i = 0; i < sar_info_size; i++) {
 		if (sar_info[i].lvl == SAR_LVL_INVALID) {	//if driver loaded under LT/HT env, it would cause wrong settings at this time.
@@ -106,7 +84,7 @@ static u8 get_sar_lvl(u32 sar)
 		}
 	}
 	if (changed) {
-		printk("changed: 0x%x\n", changed);
+		pr_debug("changed: 0x%x\n", changed);
 	}
 	prev_sar = sar;
 	return changed;
@@ -119,12 +97,12 @@ void sar_monitor(u32 curr_sar, struct ssv_softc *sc)
 	changed = get_sar_lvl(curr_sar);
 
 	if (changed & BIT(SAR_TXGAIN_INDEX)) {
-		printk("TXGAIN: 0x%08x\n", sar_info[SAR_TXGAIN_INDEX].value);
+		dev_dbg(sc->dev, "TXGAIN: 0x%08x\n", sar_info[SAR_TXGAIN_INDEX].value);
 		SMAC_REG_WRITE(sc->sh, ADR_TX_GAIN_FACTOR,
 			       sar_info[SAR_TXGAIN_INDEX].value);
 	}
 	if (changed & BIT(SAR_XTAL_INDEX)) {
-		printk("XTAL: 0x%08x\n", sar_info[SAR_XTAL_INDEX].value);
+		dev_dbg(sc->dev, "XTAL: 0x%08x\n", sar_info[SAR_XTAL_INDEX].value);
 		SMAC_REG_WRITE(sc->sh, ADR_SYN_KVCO_XO_FINE_TUNE_CBANK,
 			       sar_info[SAR_XTAL_INDEX].value);
 	}
@@ -146,14 +124,14 @@ void thermal_monitor(struct work_struct *work)
 
 	u32 temp;
 	if (sc->ps_status == PWRSV_PREPARE) {
-		printk("sar PWRSV_PREPARE\n");
+		dev_dbg(sc->dev, "sar PWRSV_PREPARE\n");
 		return;
 	}
 
 	mutex_lock(&sc->mutex);
 	SMAC_REG_READ(sc->sh, ADR_RX_11B_CCA_1, &temp);
 	if (temp == RX_11B_CCA_IN_SCAN) {
-		printk("in scan\n");
+		dev_dbg(sc->dev, "in scan\n");
 		mutex_unlock(&sc->mutex);
 		queue_delayed_work(sc->thermal_wq, &sc->thermal_monitor_work,
 				   THERMAL_MONITOR_TIME);
@@ -207,7 +185,7 @@ int get_flash_info(struct ssv_softc *sc)
 		}
 	}
 	if (IS_ERR(fp) || fp == NULL) {
-		printk("flash_file %s not found, disable sar\n",
+		dev_info(sc->dev, "flash_file %s not found, disable sar\n",
 		       DEFAULT_CFG_BIN_NAME);
 		//WARN_ON(1);
 		ret = 0;
@@ -219,12 +197,11 @@ int get_flash_info(struct ssv_softc *sc)
 	filp_close(fp, NULL);
 	ret = 1;
 
-	flash_hexdump();
 	for (i = 0; i < sar_info_size; i++) {
 		sar_info[i].p = &flash_cfg.sar_rlh[i];
-		printk("rt = %x, lt = %x, ht = %x\n", sar_info[i].p->rt,
+		dev_dbg(sc->dev, "rt = %x, lt = %x, ht = %x\n", sar_info[i].p->rt,
 		       sar_info[i].p->lt, sar_info[i].p->ht);
-		printk("lt_ts = %x, ht_ts = %x\n", sar_info[i].p->lt_ts,
+		dev_dbg(sc->dev, "lt_ts = %x, ht_ts = %x\n", sar_info[i].p->lt_ts,
 		       sar_info[i].p->ht_ts);
 	}
 	return ret;

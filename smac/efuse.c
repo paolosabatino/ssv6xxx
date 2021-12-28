@@ -247,7 +247,7 @@ void efuse_read_all_map(struct ssv_hw *sh)
 	if (!is_valid_ether_addr(&sh->cfg.maddr[0][0])) {
 		if (!sh->cfg.ignore_efuse_mac) {
 			if (is_valid_ether_addr(rom_mac0)) {
-				pr_info("MAC address from e-fuse\n");
+				dev_info(sh->sc->dev, "Using MAC address from e-fuse\n");
 				memcpy(&sh->cfg.maddr[0][0], rom_mac0,
 				       ETH_ALEN);
 				addr_increase_copy(&sh->cfg.maddr[1][0],
@@ -262,7 +262,7 @@ void efuse_read_all_map(struct ssv_hw *sh)
 						  ssv_initmac[kk + 1]);
 			}
 			if (is_valid_ether_addr(mac)) {
-				pr_info("MAC address from insert module\n");
+				dev_info(sh->sc->dev, "Using MAC address from module option\n");
 				memcpy(&sh->cfg.maddr[0][0], mac, ETH_ALEN);
 				addr_increase_copy(&sh->cfg.maddr[1][0], mac);
 				goto Done;
@@ -272,8 +272,8 @@ void efuse_read_all_map(struct ssv_hw *sh)
 			if ((readfile_mac
 			     (sh->cfg.mac_address_path, &sh->cfg.maddr[0][0]))
 			    && (is_valid_ether_addr(&sh->cfg.maddr[0][0]))) {
-				pr_info
-				    ("MAC address from sh->cfg.mac_address_path[wifi.cfg]\n");
+				dev_info
+				    (sh->sc->dev, "Using MAC address from configuration file\n");
 				addr_increase_copy(&sh->cfg.maddr[1][0],
 						   &sh->cfg.maddr[0][0]);
 				goto Done;
@@ -315,19 +315,18 @@ void efuse_read_all_map(struct ssv_hw *sh)
 			addr_increase_copy(&sh->cfg.maddr[1][0], pseudo_mac0);
 			break;
 		}
-		pr_info("MAC address from Software MAC mode[%d]\n",
+		dev_info(sh->sc->dev, "MAC address from Software MAC mode[%d]\n",
 			sh->cfg.mac_address_mode);
 	}
  Done:
-	pr_info("EFUSE configuration\n");
-	pr_info("Read efuse chip identity[%08x]\n", ssv_cfg.chip_identity);
-	pr_debug("r_calbration_result- %x\n", ssv_cfg.r_calbration_result);
-	pr_debug("sar_result- %x\n", ssv_cfg.sar_result);
-	pr_debug("crystal_frequency_offset- %x\n",
+	dev_info(sh->sc->dev, "Chip identity from efuse: %08x\n", ssv_cfg.chip_identity);
+	dev_dbg(sh->sc->dev, "r_calbration_result- %x\n", ssv_cfg.r_calbration_result);
+	dev_dbg(sh->sc->dev, "sar_result- %x\n", ssv_cfg.sar_result);
+	dev_dbg(sh->sc->dev, "crystal_frequency_offset- %x\n",
 		 ssv_cfg.crystal_frequency_offset);
-	pr_debug("tx_power_index_1- %x\n", ssv_cfg.tx_power_index_1);
-	pr_debug("tx_power_index_2- %x\n", ssv_cfg.tx_power_index_2);
-	pr_debug("MAC address - %pM\n", rom_mac0);
+	dev_dbg(sh->sc->dev, "tx_power_index_1- %x\n", ssv_cfg.tx_power_index_1);
+	dev_dbg(sh->sc->dev, "tx_power_index_2- %x\n", ssv_cfg.tx_power_index_2);
+	dev_dbg(sh->sc->dev, "MAC address - %pM\n", rom_mac0);
 	sh->cfg.crystal_frequency_offset = ssv_cfg.crystal_frequency_offset;
 	sh->cfg.tx_power_index_1 = ssv_cfg.tx_power_index_1;
 	sh->cfg.tx_power_index_2 = ssv_cfg.tx_power_index_2;

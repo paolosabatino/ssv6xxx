@@ -108,11 +108,11 @@ unsigned int cal_duration_of_ampdu(struct sk_buff *ampdu_skb, int stage)
 	    ktime_to_ms(ktime_sub(current_ktime, mpdu_skb_info->timestamp));
 	if (timeout > SKB_DURATION_TIMEOUT_MS) {
 		if (stage == SKB_DURATION_STAGE_TO_SDIO)
-			printk("*a_to_sdio: %ums\n", timeout);
+			pr_debug("*a_to_sdio: %ums\n", timeout);
 		else if (stage == SKB_DURATION_STAGE_TX_ENQ)
-			printk("*a_to_txenqueue: %ums\n", timeout);
+			pr_debug("*a_to_txenqueue: %ums\n", timeout);
 		else
-			printk("*a_in_hwq: %ums\n", timeout);
+			pr_debug("*a_in_hwq: %ums\n", timeout);
 	}
 	return timeout;
 }
@@ -148,7 +148,7 @@ static bool ssv6200_ampdu_add_delimiter_and_crc32(struct sk_buff *mpdu)
 	mpdu_hdr->duration_id = AMPDU_TX_NAV_MCS_567;
 	ret = skb_padto(mpdu, mpdu->len + (AMPDU_FCS_LEN + pad));
 	if (ret) {
-		printk(KERN_ERR "Failed to extand skb for aggregation.");
+		pr_err("Failed to extand skb for aggregation\n");
 		return false;
 	}
 	skb_put(mpdu, AMPDU_FCS_LEN + pad);
@@ -245,8 +245,7 @@ bool _sync_ampdu_pkt_arr(struct AMPDU_TID_st *ampdu_tid, struct sk_buff *ampdu,
 		else
 			page_count = page_count >> HW_MMU_PAGE_SHIFT;
 		if (page_count > (SSV6200_PAGE_TX_THRESHOLD / 2))
-			printk(KERN_ERR
-			       "AMPDU requires pages %d(%d-%d-%d) exceeds resource limit %d.\n",
+			pr_err("AMPDU requires pages %d(%d-%d-%d) exceeds resource limit %d.\n",
 			       page_count, ampdu->len, ampdu_hdr->max_size,
 			       ampdu_hdr->size,
 			       (SSV6200_PAGE_TX_THRESHOLD / 2));
@@ -688,7 +687,7 @@ void ssv6200_ampdu_tx_start(u16 tid, struct ieee80211_sta *sta,
 	ampdu_tid = &ssv_sta_priv->ampdu_tid[tid];
 	ampdu_tid->ssv_baw_head = SSV_ILLEGAL_SN;
 #ifdef DEBUG_AMPDU_FLUSH
-	printk(KERN_ERR "Adding %02X-%02X-%02X-%02X-%02X-%02X TID %d (%p).\n",
+	pr_debug("Adding %02X-%02X-%02X-%02X-%02X-%02X TID %d (%p).\n",
 	       sta->addr[0], sta->addr[1], sta->addr[2],
 	       sta->addr[3], sta->addr[4], sta->addr[5],
 	       ampdu_tid->tidno, ampdu_tid);
@@ -699,7 +698,7 @@ void ssv6200_ampdu_tx_start(u16 tid, struct ieee80211_sta *sta,
 				break;
 		}
 		if (j == MAX_TID) {
-			printk(KERN_ERR "No room for new TID.\n");
+			dev_err(sc->dev, "No room for new TID.\n");
 		} else
 			sc->tid[j] = ampdu_tid;
 	}
@@ -733,6 +732,7 @@ void ssv6200_ampdu_tx_start(u16 tid, struct ieee80211_sta *sta,
 void ssv6200_ampdu_tx_operation(u16 tid, struct ieee80211_sta *sta,
 				struct ieee80211_hw *hw, u8 buffer_size)
 {
+    struct ssv_softc *sc = hw->priv;
 	struct ssv_sta_priv_data *ssv_sta_priv;
 	ssv_sta_priv = (struct ssv_sta_priv_data *)sta->drv_priv;
 	ssv_sta_priv->ampdu_tid[tid].tidno = tid;
@@ -741,7 +741,7 @@ void ssv6200_ampdu_tx_operation(u16 tid, struct ieee80211_sta *sta,
 	if (buffer_size > IEEE80211_MAX_AMPDU_BUF) {
 		buffer_size = IEEE80211_MAX_AMPDU_BUF;
 	}
-	printk("ssv6200_ampdu_tx_operation:buffer_size=%d\n", buffer_size);
+	dev_info(sc->dev, "AMPDU buffer_size=%d\n", buffer_size);
 	ssv_sta_priv->ampdu_tid[tid].ssv_baw_size = SSV_AMPDU_WINDOW_SIZE;
 	ssv_sta_priv->ampdu_tid[tid].state = AMPDU_STATE_OPERATION;
 }
@@ -769,7 +769,7 @@ void ssv6200_ampdu_tx_stop(u16 tid, struct ieee80211_sta *sta,
 	if (ssv_sta_priv->ampdu_tid[tid].state == AMPDU_STATE_STOP)
 		return;
 	ssv_sta_priv->ampdu_tid[tid].state = AMPDU_STATE_STOP;
-	printk("ssv6200_ampdu_tx_stop\n");
+	dev_dbg(sc->dev, "ssv6200_ampdu_tx_stop\n");
 	if (!list_empty(&sc->tx.ampdu_tx_que)) {
 #ifdef DEBUG_AMPDU_FLUSH
 		{
@@ -781,12 +781,10 @@ void ssv6200_ampdu_tx_stop(u16 tid, struct ieee80211_sta *sta,
 					break;
 			}
 			if (j == MAX_TID) {
-				printk(KERN_ERR
-				       "No TID found when deleting it.\n");
+				dev_dbg(sc->dev, "No TID found when deleting it.\n");
 			} else
 				sc->tid[j] = NULL;
-			printk(KERN_ERR
-			       "Deleting %02X-%02X-%02X-%02X-%02X-%02X TID %d (%p).\n",
+			dev_dbg(sc->dev, "Deleting %02X-%02X-%02X-%02X-%02X-%02X TID %d (%p).\n",
 			       sta->addr[0], sta->addr[1], sta->addr[2],
 			       sta->addr[3], sta->addr[4], sta->addr[5],
 			       ampdu_tid->tidno, ampdu_tid);
@@ -794,15 +792,15 @@ void ssv6200_ampdu_tx_stop(u16 tid, struct ieee80211_sta *sta,
 #endif
 		list_del_rcu(&ssv_sta_priv->ampdu_tid[tid].list);
 	}
-	printk("clear tx q len=%d\n",
+	dev_dbg(sc->dev, "clear tx q len=%d\n",
 	       skb_queue_len(&ssv_sta_priv->ampdu_tid[tid].ampdu_skb_tx_queue));
 	_clear_mpdu_q(sc->hw, &ssv_sta_priv->ampdu_tid[tid].ampdu_skb_tx_queue,
 		      true);
-	printk("clear retry q len=%d\n",
+	dev_dbg(sc->dev, "clear retry q len=%d\n",
 	       skb_queue_len(&ssv_sta_priv->ampdu_tid[tid].retry_queue));
 	_clear_mpdu_q(sc->hw, &ssv_sta_priv->ampdu_tid[tid].retry_queue, true);
 #ifdef USE_ENCRYPT_WORK
-	printk("clear encrypt q len=%d\n",
+	dev_dbg(sc->dev, "clear encrypt q len=%d\n",
 	       skb_queue_len(&ssv_sta_priv->ampdu_tid[tid].
 			     ampdu_skb_wait_encry_queue));
 	_clear_mpdu_q(sc->hw,
@@ -935,7 +933,7 @@ u32 _flush_early_ampdu_q(struct ssv_softc *sc, struct AMPDU_TID_st *ampdu_tid)
 #endif
 			if ((skb_queue_len(early_aggr_ampdu_q) == 0)
 			    && (ampdu_tid->early_aggr_skb_num > 0)) {
-				printk(KERN_ERR "Empty early Q w. %d.\n",
+				dev_warn(sc->dev, "Empty early Q w. %d.\n",
 				       ampdu_tid->early_aggr_skb_num);
 			}
 			spin_unlock_irqrestore(&early_aggr_ampdu_q->lock,
@@ -1126,7 +1124,7 @@ bool ssv6200_ampdu_tx_handler(struct ieee80211_hw *hw, struct sk_buff *skb)
 	info->flags |= IEEE80211_TX_STAT_ACK;
 	copy_skb = skb_copy(tx_skb, GFP_ATOMIC);
 	if (!copy_skb) {
-		printk("create TX skb copy failed!\n");
+		dev_err(sc->dev, "create TX skb copy failed!\n");
 		return false;
 	}
 	ieee80211_tx_status(sc->hw, tx_skb);
@@ -1164,8 +1162,7 @@ u32 ssv6xxx_ampdu_flush(struct ieee80211_hw *hw)
 					if (sc->tid[i] == cur_AMPDU_TID)
 						break;
 				if (i == MAX_TID) {
-					printk(KERN_ERR
-					       "No matching TID (%d) found! %p\n",
+					dev_err(sc->dev, "No matching TID (%d) found! %p\n",
 					       tid_idx, cur_AMPDU_TID);
 					continue;
 				}
@@ -1460,8 +1457,7 @@ static u32 _ba_map_walker(struct AMPDU_TID_st *ampdu_tid, u32 start_ssn,
 			skb_info = (struct SKB_info_st *)(skb->head);
 			if (found && (sn_bit_map[word_idx] & (1 << bit_idx))) {
 				if (skb_info->ampdu_tx_status != AMPDU_ST_SENT) {
-					printk(KERN_ERR
-					       "BA marks a MPDU of status %d!\n",
+					pr_err("BA marks a MPDU of status %d!\n",
 					       skb_info->ampdu_tx_status);
 				}
 				skb_info->ampdu_tx_status = AMPDU_ST_DONE;
@@ -1711,19 +1707,17 @@ void ssv6200_ampdu_BA_handler(struct ieee80211_hw *hw, struct sk_buff *skb)
 		for (i = 0; i < SSV62XX_TX_MAX_RATES; i++) {
 			if (report_data->rates[i].data_rate == -1)
 				break;
-			if (report_data->rates[i].count == 0) {
-				printk("*********************************\n");
-				printk("       Illegal HT report         \n");
-				printk("*********************************\n");
-			}
-			printk("        i=[%d] rate[%d] count[%d]\n", i,
+			if (report_data->rates[i].count == 0)
+                dev_err(sc->dev, "illegal HT report\n");
+
+			dev_dbg(sc->dev, "i=[%d] rate[%d] count[%d]\n", i,
 			       report_data->rates[i].data_rate,
 			       report_data->rates[i].count);
 		}
-		printk("AMPDU percentage = %d%% \n",
+		dev_dbg(sc->dev, "AMPDU percentage = %d%% \n",
 		       acked_num * 100 / aggr_num);
 	} else if (acked_num == 0) {
-		printk("AMPDU percentage = 0%% aggr_num=%d acked_num=%d\n",
+		dev_dbg(sc->dev, "AMPDU percentage = 0%% aggr_num=%d acked_num=%d\n",
 		       aggr_num, acked_num);
 	}
 #endif
@@ -1996,7 +1990,7 @@ struct sk_buff *_alloc_ampdu_skb(struct ssv_softc *sc,
 	payload_addr = ampdu_skb->data + headroom - sc->sh->tx_desc_len;
 	offset = ((size_t)payload_addr) % 4U;
 	if (offset) {
-		printk(KERN_ERR "Align AMPDU data %d\n", offset);
+		dev_dbg(sc->dev, "Align AMPDU data %d\n", offset);
 		skb_reserve(ampdu_skb, headroom + 4 - offset);
 	} else
 		skb_reserve(ampdu_skb, headroom);
