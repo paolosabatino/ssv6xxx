@@ -685,14 +685,13 @@ ssv6xxx_sdio_read(struct device *child, void *buf, size_t *size)
         goto out;
     }
 
-    data_size = sdio_align_size(func, data_size);
-    ret = sdio_memcpy_fromio(func, buf, glue->ioport_data, data_size);
+    ret = sdio_memcpy_fromio(func, buf, glue->ioport_data, sdio_align_size(func, data_size));
 
     if (unlikely(ret)) {
         dev_err(child->parent, "sdio read failed size ret[%d]\n", ret);
         goto out;
     }
-
+    
     *size = data_size;
 
 out:
