@@ -503,7 +503,7 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 {
 	struct ssv_softc *sc = sh->sc;
 	int i = 0, ret = 0;
-	u8 temp_path[256] = "";
+
 	u32 *ptr, id_len, regval, temp[0x8];
 	char *chip_id = sh->chip_id;
 	SMAC_REG_READ(sh, ADR_IC_TIME_TAG_1, &regval);
@@ -724,19 +724,9 @@ int ssv6xxx_init_mac(struct ssv_hw *sh)
 	SMAC_REG_WRITE(sh, ADR_PAD27, 8);
 	SMAC_REG_WRITE(sh, ADR_PAD28, 8);
 #endif
-	if (cfgfirmwarepath != NULL) {
-		sprintf(temp_path, "%s%s", cfgfirmwarepath, WIFI_FIRMWARE_NAME);
-		ret = SMAC_LOAD_FW(sh, temp_path, 1);
-		dev_info(sh->sc->dev, "Firmware name set by cfgfirmwarepath to %s\n", temp_path);
-	} else if (sh->cfg.firmware_path[0] != 0x00) {
-		sprintf(temp_path, "%s%s", sh->cfg.firmware_path,
-			WIFI_FIRMWARE_NAME);
-		ret = SMAC_LOAD_FW(sh, temp_path, 1);
-		dev_info(sh->sc->dev, "Firmware name set by configuration to %s\n", temp_path);
-	} else {
-		dev_info(sh->sc->dev, "Firmware name set by compiled default to %s\n", WIFI_FIRMWARE_NAME);
-		ret = SMAC_LOAD_FW(sh, WIFI_FIRMWARE_NAME, 0);
-	}
+	dev_info(sh->sc->dev, "attempt to load firmware %s\n", WIFI_FIRMWARE_NAME);
+	ret = SMAC_LOAD_FW(sh, WIFI_FIRMWARE_NAME, 0);
+
 	SMAC_REG_READ(sh, FW_VERSION_REG, &regval);
 	if (regval == ssv_firmware_version) {
 		SMAC_REG_SET_BITS(sh, ADR_PHY_EN_1, (1 << RG_PHY_MD_EN_SFT),

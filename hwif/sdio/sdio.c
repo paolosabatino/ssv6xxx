@@ -33,9 +33,8 @@
 #include <ssv6200.h>
 #include <linux/skbuff.h>
 
-#define SDIO_USE_SLOW_CLOCK
 #define LOW_SPEED_SDIO_CLOCK (25000000)
-#define HIGH_SPEED_SDIO_CLOCK (50000000)
+#define HIGH_SPEED_SDIO_CLOCK (37500000)
 #define MAX_RX_FRAME_SIZE 0x900
 #define SSV_VENDOR_ID 0x3030
 #define SSV_CABRIO_DEVID 0x3030
@@ -205,16 +204,13 @@ ssv6xxx_sdio_write_reg(struct device *child, u32 addr, u32 buf)
     ret_if_not_ready(-1);
 
     func = dev_to_sdio_func(glue->dev);
-    //dev_dbg(child->parent, "sdio write reg addr 0x%x, 0x%x\n", addr, buf);
+
     sdio_claim_host(func);
     data[0] = addr;
     data[1] = buf;
 
     ret = sdio_memcpy_toio(func, glue->ioport_reg, data, sizeof(data));
     sdio_release_host(func);
-#ifdef __x86_64
-    udelay(50);
-#endif
 
 	return ret;
 }
@@ -292,20 +288,19 @@ void ssv6xxx_close_firmware(struct file *fp)
 }
 
 static int
-ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
+ssv6xxx_sdio_upload_firmware(struct device *child, const u8 *firmware, u32 firmware_length)
 {
 	int ret;
     u32 clk_en;
 	u32 word_count, i;
-	u8 *fw_buffer = NULL;
-	u32 sram_addr = 0x00000000;
+    u32 block_size;
+	u8 *buffer;
+	u32 sram_ptr = 0;
 	u32 block_count = 0;
-	u32 len = 0;
-	void *fw_fp = NULL;
+    u32 firmware_ptr = 0;
 
 	u32 checksum = FW_CHECKSUM_INIT;
-	u32 fw_checksum, fw_clkcnt;
-	u32 *fw_data32;
+	u32 fw_checksum, fw_blkcnt;
 
 	struct ssv6xxx_sdio_glue *glue;
 
@@ -316,15 +311,8 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
         (glue->dev_ready == false))
         goto out;
 
-    fw_fp = ssv6xxx_open_firmware(firmware_name);
-    if (!fw_fp) {
-        dev_err(child, "failed to find firmware (%s)\n", firmware_name);
-        ret = -1;
-        goto out;
-    }
-
-    fw_buffer = (u8 *)kzalloc(FW_BLOCK_SIZE, GFP_KERNEL);
-    if (fw_buffer == NULL) {
+    buffer = (u8 *)kzalloc(FW_BLOCK_SIZE, GFP_KERNEL);
+    if (buffer == NULL) {
         dev_err(child, "Failed to allocate buffer for firmware.\n");
         ret = -ENOMEM;
         goto out;
@@ -350,32 +338,38 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
 
     dev_dbg(child, "begin writing firmware\n");
 
-    fw_data32 = (u32 *)fw_buffer;
+    while (firmware_length > 0) {
 
-    do {
+        memset(buffer, 0xA5, FW_BLOCK_SIZE);
 
-        memset(fw_buffer, 0xA5, FW_BLOCK_SIZE);
-        len = ssv6xxx_read_fw_block((u8 *)fw_buffer, FW_BLOCK_SIZE, fw_fp);
+        block_size = firmware_length;
+        if (block_size > FW_BLOCK_SIZE)
+            block_size = FW_BLOCK_SIZE;
 
-        if (len == 0)
-            break;
+        memcpy(buffer, &firmware[firmware_ptr], block_size);
 
-        len = DIV_ROUND_UP(len, CHECKSUM_BLOCK_SIZE) * CHECKSUM_BLOCK_SIZE;
+        firmware_ptr += block_size;
+        firmware_length -= block_size;
 
-        ret = ssv6xxx_sdio_write_sram(child, sram_addr, (u8 *)fw_buffer, len);
+        /*
+         * Uploading to chip sram and checksumming happens in chunks of CHECKSUM_BLOCK_SIZE,
+         * so we round the block size accordingly and use that valueù
+         */
+        block_size = DIV_ROUND_UP(block_size, CHECKSUM_BLOCK_SIZE) * CHECKSUM_BLOCK_SIZE;
+        ret = ssv6xxx_sdio_write_sram(child, sram_ptr, (u8 *)buffer, block_size);
 
         if (ret) {
             dev_err(child, "firmware upload failed\n");
             goto out;
         }
 
-        sram_addr += len;
+        sram_ptr += block_size;
 
-        word_count = len / sizeof(u32);
+        word_count = block_size / sizeof(u32);
         for (i = 0; i < word_count; i++)
-            checksum += fw_data32[i];
+            checksum += ((u32 *)buffer)[i];
 
-    } while(true);
+    }
 
     checksum = ((checksum >> 24) +
                 (checksum >> 16) +
@@ -383,12 +377,12 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
                 checksum) & 0x0FF;
     checksum <<= 16;
 
-    block_count = DIV_ROUND_UP(sram_addr, CHECKSUM_BLOCK_SIZE);
+    block_count = DIV_ROUND_UP(sram_ptr, CHECKSUM_BLOCK_SIZE);
     ret = ssv6xxx_sdio_write_reg(child, FW_STATUS_REG, (block_count << 16));
     if (unlikely(ret))
         goto out;
 
-    ret = ssv6xxx_sdio_read_reg(child, FW_STATUS_REG, &fw_clkcnt);
+    ret = ssv6xxx_sdio_read_reg(child, FW_STATUS_REG, &fw_blkcnt);
     if (unlikely(ret))
         goto out;
 
@@ -396,7 +390,7 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
     if (unlikely(ret))
         goto out;
 
-    dev_info(child, "firmware upload complete (wrote %d blocks, verified %d blocks)\n", block_count, fw_clkcnt >> 16);
+    dev_info(child, "firmware upload complete (wrote %d blocks, verified %d blocks)\n", block_count, fw_blkcnt >> 16);
 
     msleep(50);
 
@@ -418,224 +412,49 @@ ssv6xxx_sdio_load_firmware_openfile(struct device *child, u8 * firmware_name)
 
  out:
 
-	if (fw_fp)
-		ssv6xxx_close_firmware(fw_fp);
-
-	if (fw_buffer)
-		kfree(fw_buffer);
+	if (buffer)
+		kfree(buffer);
 
 	return ret;
 
 }
 
-int
-ssv6xxx_get_firmware(struct device *dev,
-		     char *user_mainfw, const struct firmware **mainfw)
-{
-	int ret;
-	BUG_ON(mainfw == NULL);
-	if (*user_mainfw) {
-		ret = request_firmware(mainfw, user_mainfw, dev);
-		if (ret) {
-			dev_err(dev, "couldn't find main firmware %s\n",
-				user_mainfw);
-			goto fail;
-		}
-		if (*mainfw)
-			return 0;
-	}
- fail:
-	if (*mainfw) {
-		release_firmware(*mainfw);
-		*mainfw = NULL;
-	}
-	return -ENOENT;
-}
-
 static int
-ssv6xxx_sdio_load_firmware_request(struct device *child, u8 * firmware_name)
+ssv6xxx_sdio_load_firmware(struct device *child, u8 *firmware_name, u8 openfile)
 {
-	int ret = 0;
-	const struct firmware *ssv6xxx_fw = NULL;
-	struct ssv6xxx_sdio_glue *glue;
-	u8 *fw_buffer = NULL;
-	u32 sram_addr = 0x00000000;
-	u32 block_count = 0;
-	u32 block_idx = 0;
-	u32 res_size;
-	u8 *fw_data;
 
-	u32 checksum = FW_CHECKSUM_INIT;
-	u32 fw_checksum;
-	u32 retry_count = 3;
-	u32 *fw_data32;
+    int ret;
+    const struct firmware *firmware = NULL;
+    struct sdio_func *func;
+   	struct ssv6xxx_sdio_glue *glue;
 
-#ifndef SDIO_USE_SLOW_CLOCK
-	struct sdio_func *func = NULL;
-	struct mmc_card *card = NULL;
-	struct mmc_host *host = NULL;
-#endif
-	glue = dev_get_drvdata(child->parent);
-	if ((wlan_data.is_enabled != false)
-	    || (glue != NULL) || (glue->dev_ready != false)) {
-#ifndef SDIO_USE_SLOW_CLOCK
-		func = dev_to_sdio_func(glue->dev);
-		card = func->card;
-		host = card->host;
-#endif
-		ret =
-		    ssv6xxx_get_firmware(glue->dev, firmware_name, &ssv6xxx_fw);
-		if (ret) {
-			dev_err(child, "failed to find firmware (%d)\n", ret);
-			goto out;
-		}
-		fw_buffer = (u8 *) kzalloc(FW_BLOCK_SIZE, GFP_KERNEL);
-		if (fw_buffer == NULL) {
-			dev_err(child, "Failed to allocate buffer for firmware.\n");
-			goto out;
-		}
+    glue = dev_get_drvdata(child->parent);
 
-		block_count = ssv6xxx_fw->size / CHECKSUM_BLOCK_SIZE;
-		res_size = ssv6xxx_fw->size % CHECKSUM_BLOCK_SIZE;
-		{
-			int word_count =
-			    (int)(block_count * CHECKSUM_BLOCK_SIZE /
-				  sizeof(u32));
-			int i;
-			fw_data32 = (u32 *) ssv6xxx_fw->data;
-			for (i = 0; i < word_count; i++)
-				checksum += fw_data32[i];
-			if (res_size) {
-				memset(fw_buffer, 0xA5, CHECKSUM_BLOCK_SIZE);
-				memcpy(fw_buffer,
-				       &ssv6xxx_fw->data[block_count *
-							 CHECKSUM_BLOCK_SIZE],
-				       res_size);
-				word_count =
-				    (int)(CHECKSUM_BLOCK_SIZE / sizeof(u32));
-				fw_data32 = (u32 *) fw_buffer;
-				for (i = 0; i < word_count; i++) {
-					checksum += fw_data32[i];
-				}
-			}
-		}
-		checksum =
-		    ((checksum >> 24) + (checksum >> 16) + (checksum >> 8) +
-		     checksum) & 0x0FF;
-		checksum <<= 16;
+    ret = request_firmware(&firmware, firmware_name, glue->dev);
 
-		do {
-			u32 clk_en;
-			if (ssv6xxx_sdio_write_reg
-			    (child, ADR_BRG_SW_RST, 0x0)) ;
-			if (ssv6xxx_sdio_write_reg(child, ADR_BOOT, 0x01)) ;
-			if (ssv6xxx_sdio_read_reg
-			    (child, ADR_PLATFORM_CLOCK_ENABLE, &clk_en)) ;
-			if (ssv6xxx_sdio_write_reg
-			    (child, ADR_PLATFORM_CLOCK_ENABLE,
-			     clk_en | (1 << 2))) ;
+    if (ret) {
+        dev_err(child, "could not find firmware file %s, err=%d\n", firmware_name, ret);
+        goto out;
+    }
 
-			block_count = ssv6xxx_fw->size / FW_BLOCK_SIZE;
-			res_size = ssv6xxx_fw->size % FW_BLOCK_SIZE;
-			dev_dbg(child, "Writing %d blocks to SSV6XXX...", block_count);
-			for (block_idx = 0, fw_data =
-			     (u8 *) ssv6xxx_fw->data, sram_addr = 0;
-			     block_idx < block_count;
-			     block_idx++, fw_data += FW_BLOCK_SIZE, sram_addr +=
-			     FW_BLOCK_SIZE) {
-				memcpy(fw_buffer, fw_data, FW_BLOCK_SIZE);
-				ret =
-				    ssv6xxx_sdio_write_sram(child, sram_addr,
-							    (u8 *) fw_buffer,
-							    FW_BLOCK_SIZE);
-				if (ret)
-					break;
-			}
-			if (res_size) {
-				memset(fw_buffer, 0xA5, FW_BLOCK_SIZE);
-				memcpy(fw_buffer,
-				       &ssv6xxx_fw->data[block_count *
-							 FW_BLOCK_SIZE],
-				       res_size);
-				ret =
-				    ssv6xxx_sdio_write_sram(child, sram_addr,
-							    (u8 *) fw_buffer,
-							    ((res_size /
-							      CHECKSUM_BLOCK_SIZE)
-							     +
-							     1) *
-							    CHECKSUM_BLOCK_SIZE);
-			}
+    ret = ssv6xxx_sdio_upload_firmware(child, firmware->data, firmware->size);
 
-			if (ret == 0) {
+    if (ret) {
+        dev_err(child, "could not upload firmware to device, err=%d\n", ret);
+        goto out;
+    }
 
-				block_count =
-				    ssv6xxx_fw->size / CHECKSUM_BLOCK_SIZE;
-				res_size =
-				    ssv6xxx_fw->size % CHECKSUM_BLOCK_SIZE;
-				if (res_size)
-					block_count++;
-				if (ssv6xxx_sdio_write_reg
-				    (child, FW_STATUS_REG,
-				     (block_count << 16))) ;
-
-				if (ssv6xxx_sdio_write_reg
-				    (child, ADR_BRG_SW_RST, 0x1)) ;
-				dev_info(child, "Firmware \"%s\" loaded\n",
-				       firmware_name);
-
-				msleep(50);
-				if (ssv6xxx_sdio_read_reg
-				    (child, FW_STATUS_REG, &fw_checksum)) ;
-				fw_checksum = fw_checksum & FW_STATUS_MASK;
-				if (fw_checksum == checksum) {
-					if (ssv6xxx_sdio_write_reg
-					    (child, FW_STATUS_REG,
-					     (~checksum & FW_STATUS_MASK))) ;
-					ret = 0;
-					dev_dbg(child, "Firmware check OK.\n");
-					break;
-				} else {
-					dev_err(child, "FW checksum error: %04x != %04x\n", fw_checksum, checksum);
-					ret = -1;
-				}
-
-			} else {
-				dev_err(child, "Firmware \"%s\" download failed. (%d)\n", firmware_name, ret);
-				ret = -1;
-			}
-		}
-		while (--retry_count);
-		if (ret)
-			goto out;
-		ret = 0;
-	}
- out:
-	if (ssv6xxx_fw)
-		release_firmware(ssv6xxx_fw);
-	if (fw_buffer != NULL)
-		kfree(fw_buffer);
-	msleep(50);
-	return ret;
-}
-
-static int
-ssv6xxx_sdio_load_firmware(struct device *child, u8 * firmware_name,
-			   u8 openfile)
-{
-	int ret = -1;
-	struct ssv6xxx_sdio_glue *glue;
-	struct sdio_func *func;
-	glue = dev_get_drvdata(child->parent);
-	if (openfile)
-		ret = ssv6xxx_sdio_load_firmware_openfile(child, firmware_name);
-	else
-		ret = ssv6xxx_sdio_load_firmware_request(child, firmware_name);
-	if (glue != NULL) {
+    if (glue != NULL) {
 		func = dev_to_sdio_func(glue->dev);
 		ssv6xxx_high_sdio_clk(func);
 	}
-	return ret;
+
+out:
+    if (firmware != NULL)
+        release_firmware(firmware);
+
+    return ret;
+
 }
 
 static int ssv6xxx_sdio_irq_getstatus(struct device *child, int *status)
