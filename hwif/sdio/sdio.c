@@ -46,12 +46,12 @@
 #define FW_STATUS_REG ADR_TX_SEG
 #define FW_STATUS_MASK (0x00FF0000)
 
-#define ret_if_not_ready(bool) \
+#define ret_if_not_ready(value) \
     do { \
     if ((wlan_data.is_enabled == false) || \
         (glue == NULL) || (glue->dev_ready == false)) { \
         pr_warn("ret_if_not_ready() called when not ready"); \
-        return bool; }\
+        return value; }\
     } while(0)
 
 static int ssv6xxx_sdio_trigger_pmu(struct device *dev);
@@ -107,7 +107,7 @@ static int ssv6xxx_sdio_cmd52_read(struct device *child, u32 addr, u32 * value)
 	struct ssv6xxx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func;
 
-	ret_if_not_ready(false);
+	ret_if_not_ready(-1);
 
     func = dev_to_sdio_func(glue->dev);
     sdio_claim_host(func);
@@ -123,7 +123,7 @@ static int ssv6xxx_sdio_cmd52_write(struct device *child, u32 addr, u32 value)
 	struct ssv6xxx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func;
 
-    ret_if_not_ready(false);
+    ret_if_not_ready(-1);
 
 	func = dev_to_sdio_func(glue->dev);
     sdio_claim_host(func);
@@ -142,7 +142,7 @@ ssv6xxx_sdio_read_reg(struct device *child, u32 addr, u32 * buf)
 	struct sdio_func *func;
 	u32 data;
 
-    ret_if_not_ready(false);
+    ret_if_not_ready(-1);
 
     func = dev_to_sdio_func(glue->dev);
 
@@ -202,7 +202,7 @@ ssv6xxx_sdio_write_reg(struct device *child, u32 addr, u32 buf)
 
     u32 data[2];
 
-    ret_if_not_ready(false);
+    ret_if_not_ready(-1);
 
     func = dev_to_sdio_func(glue->dev);
     //dev_dbg(child->parent, "sdio write reg addr 0x%x, 0x%x\n", addr, buf);
@@ -227,7 +227,7 @@ ssv6xxx_sdio_write_sram(struct device *child, u32 addr, u8 * data, u32 size)
 	struct sdio_func *func = NULL;
 	glue = dev_get_drvdata(child->parent);
 
-    ret_if_not_ready(false);
+    ret_if_not_ready(-1);
 
 	func = dev_to_sdio_func(glue->dev);
 	sdio_claim_host(func);
@@ -645,7 +645,7 @@ static int ssv6xxx_sdio_irq_getstatus(struct device *child, int *status)
 	struct sdio_func *func;
 	glue = dev_get_drvdata(child->parent);
 
-    ret_if_not_ready(false);
+    ret_if_not_ready(-1);
 
     func = dev_to_sdio_func(glue->dev);
     sdio_claim_host(func);
@@ -666,7 +666,7 @@ ssv6xxx_sdio_read(struct device *child, void *buf, size_t *size)
 	struct ssv6xxx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func;
 
-    ret_if_not_ready(false);
+    ret_if_not_ready(-1);
 
     func = dev_to_sdio_func(glue->dev);
     sdio_claim_host(func);
@@ -710,7 +710,7 @@ ssv6xxx_sdio_write(struct device *child, void *buf, size_t len, u8 queue_num)
 	struct sdio_func *func;
 	void *ptr;
 
-    ret_if_not_ready(false);
+    ret_if_not_ready(-1);
 
 #ifdef CONFIG_ARM64
     if (((u64) buf) & 3) {
@@ -795,7 +795,7 @@ static int ssv6xxx_sdio_irq_getmask(struct device *child, u32 * mask)
 	struct ssv6xxx_sdio_glue *glue = dev_get_drvdata(child->parent);
 	struct sdio_func *func;
 
-    ret_if_not_ready(false);
+    ret_if_not_ready(-1);
 
     func = dev_to_sdio_func(glue->dev);
     sdio_claim_host(func);
