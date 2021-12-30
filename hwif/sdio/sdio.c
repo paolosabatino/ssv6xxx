@@ -14,8 +14,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define DEBUG
-
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>

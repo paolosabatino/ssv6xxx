@@ -32,16 +32,6 @@
 #include <linux/debugfs.h>
 #endif
 
-char *stacfgpath = NULL;
-EXPORT_SYMBOL(stacfgpath);
-module_param(stacfgpath, charp, 0000);
-MODULE_PARM_DESC(stacfgpath, "Get path of sta cfg");
-
-char *cfgfirmwarepath = NULL;
-EXPORT_SYMBOL(cfgfirmwarepath);
-module_param(cfgfirmwarepath, charp, 0000);
-MODULE_PARM_DESC(cfgfirmwarepath, "Get firmware path");
-
 char *ssv_initmac = NULL;
 EXPORT_SYMBOL(ssv_initmac);
 module_param(ssv_initmac, charp, 0644);
@@ -158,18 +148,15 @@ int ischar(char *c)
 	return is_char;
 }
 
-void sta_cfg_set(char *stacfgpath)
+void sta_cfg_set(void)
 {
 	struct file *fp = (struct file *)NULL;
 	char buf[MAX_CHARS_PER_LINE], cfg_cmd[32], cfg_value[32];
 	size_t s, read_len = 0, is_cmd_support = 0;
 
-	if (stacfgpath == NULL)
-        stacfgpath = DEFAULT_CFG_PATH;
-
 	memset(&ssv_cfg, 0, sizeof(ssv_cfg));
 	memset(buf, 0, sizeof(buf));
-	fp = filp_open(stacfgpath, O_RDONLY, 0);
+	fp = filp_open(DEFAULT_CFG_PATH, O_RDONLY, 0);
 	if (IS_ERR(fp) || fp == NULL) {
 		WARN_ON(1);
 		return;
@@ -236,7 +223,7 @@ int ssvdevice_init(void)
 	debugfs_create_file(DEBUG_CMD_ENTRY, S_IRUGO | S_IWUSR, debugfs, NULL,
 			    &ssv6xxx_dbg_fops);
 #endif
-	sta_cfg_set(stacfgpath);
+	sta_cfg_set();
 	{
 		int ret;
 		ret = ssv6xxx_hci_init();

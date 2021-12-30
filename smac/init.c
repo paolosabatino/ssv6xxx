@@ -498,7 +498,6 @@ static void ssv6xxx_hw_set_replay_ignore(struct ssv_hw *sh, u8 ignore)
 	SMAC_REG_WRITE(sh, ADR_SCRT_SET, temp);
 }
 
-extern char *cfgfirmwarepath;
 int ssv6xxx_init_mac(struct ssv_hw *sh)
 {
 	struct ssv_softc *sc = sh->sc;

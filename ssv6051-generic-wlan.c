@@ -74,6 +74,8 @@ module_init(ssv_init_module);
 module_exit(ssv_exit_module);
 
 MODULE_AUTHOR("iComm Semiconductor Co., Ltd");
+MODULE_FIRMWARE("ssv*-sw.bin");
+MODULE_FIRMWARE("ssv*-wifi.cfg");
 MODULE_DESCRIPTION("Shared library for SSV wireless LAN cards.");
 MODULE_LICENSE("Dual BSD/GPL");
 
