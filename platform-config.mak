@@ -1,11 +1,8 @@
-
-CONFIG_SSV6200_CORE=m
-#ccflags-y += -DCONFIG_SSV6200_CORE
+ccflags-y += -DCONFIG_SSV6200_CORE
 
 ###########################################################################
 # Compiler options                                                        #
 ###########################################################################
-ccflags-y += -Werror
 
 # Enable -g to help debug. Deassembly from .o to .S would help to track to 
 # the problomatic line from call stack dump.
