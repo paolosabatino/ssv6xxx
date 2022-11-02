@@ -94,3 +94,6 @@ ccflags-y += -DENABLE_TX_Q_FLOW_CONTROL
 
 #enable rx management frame check
 #ccflags-y += -DCONFIG_RX_MGMT_CHECK
+
+#force SW Broadcast/Multicast decryption
+ccflags-y += -DUSE_MAC80211_DECRYPT_BROADCAST

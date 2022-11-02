@@ -3594,7 +3594,7 @@ static void _proc_data_rx_skb(struct ssv_softc *sc, struct sk_buff *rx_skb)
 		vif = sta_priv->sta_info->vif;
 		if (vif == NULL)
 			goto drop_rx;
-		if (is_broadcast_ether_addr(hdr->addr1)) {
+		if (is_broadcast_ether_addr(hdr->addr1) || is_multicast_ether_addr(hdr->addr1)) {
 			vif_priv = (struct ssv_vif_priv_data *)vif->drv_priv;
 			rx_hw_dec = vif_priv->has_hw_decrypt;
 			do_sw_dec = vif_priv->need_sw_decrypt;
